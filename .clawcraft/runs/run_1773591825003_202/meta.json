@@ -1,0 +1,27 @@
+{
+  "id": "run_1773591825003_202",
+  "agentId": "202",
+  "agentName": "Claude-Check",
+  "engine": "claude",
+  "model": "default",
+  "prompt": "Respond with the single word OK. Do not modify any files.",
+  "taskTitle": "claude smoke test",
+  "status": "failed",
+  "phase": "failed",
+  "progress": 0.095,
+  "summary": "실패",
+  "startedAt": "2026-03-15T16:23:45.003Z",
+  "endedAt": "2026-03-15T16:23:46.791Z",
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773591825003_202",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation",
+  "workspaceStrategy": "in-place",
+  "transcript": [
+    {
+      "source": "stderr",
+      "text": "Error: Input must be provided either through stdin or as a prompt argument when using --print",
+      "at": "2026-03-15T16:23:46.369Z"
+    }
+  ],
+  "filesChanged": [],
+  "errorText": "프로세스 종료(code=1, signal=none)"
+}

@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>SCV Agent Animation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',monospace;color:#7ab8ff;user-select:none}
+#game-canvas{position:fixed;top:44px;left:0;cursor:none}
+#top-bar{position:fixed;top:0;left:0;width:100%;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:linear-gradient(180deg,rgba(0,20,60,.95),rgba(0,10,30,.85));border-bottom:1px solid #1a3a6a;z-index:20}
+#top-bar .title{color:#4a9eff;font-size:14px;font-weight:bold;text-shadow:0 0 8px rgba(74,158,255,.4);letter-spacing:1px}
+.btn{background:linear-gradient(180deg,#1a3a6a,#0d1f3c);border:1px solid #2a5a9a;color:#7ab8ff;padding:6px 14px;font-size:12px;font-family:inherit;cursor:pointer;transition:all .15s;border-radius:2px}
+.btn:hover{background:linear-gradient(180deg,#2a5a9a,#1a3a6a);color:#aad4ff;border-color:#4a8adf}
+.btn:active{transform:scale(.96)}
+#controls{display:flex;gap:8px;align-items:center}
+.ctrl-input,.ctrl-select{height:30px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 10px;font-size:11px;font-family:inherit;border-radius:2px;outline:none}
+.ctrl-input{width:300px}
+.ctrl-select{min-width:110px}
+.info{font-size:11px;color:#5a8abf}
+#left-panel{position:fixed;left:0;top:44px;width:176px;height:calc(100vh - 44px);background:rgba(0,12,30,.88);border-right:1px solid #1a3a6a;z-index:15;overflow-y:auto;padding:10px;font-size:11px}
+.layer-copy{font-size:10px;color:#7397c8;line-height:1.45;margin-bottom:10px}
+.layer-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border:1px solid #1f436e;background:rgba(19,36,62,.8);border-radius:999px;color:#9fc9ff;font-size:10px;margin:0 4px 4px 0}
+.engine-item{padding:6px 7px;margin-bottom:6px;border:1px solid #15365c;background:rgba(8,24,45,.72);border-radius:3px}
+.engine-item.offline{border-color:#5b2a36;color:#d8a5b0}
+.engine-item .name{font-weight:bold;color:#9ccaff}
+.engine-item .meta{font-size:10px;color:#6e8db9;margin-top:2px}
+#side-panel{position:fixed;right:0;top:44px;width:260px;height:calc(100vh - 44px);background:rgba(0,12,30,.92);border-left:1px solid #1a3a6a;z-index:15;overflow-y:auto;padding:10px;font-size:11px}
+.panel-title{color:#4a9eff;font-weight:bold;font-size:12px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #1a2a4a}
+.agent-card{background:rgba(20,40,80,.5);border:1px solid #1a3a6a;border-radius:3px;padding:8px;margin-bottom:6px;cursor:pointer;transition:all .2s}
+.agent-card:hover{border-color:#3a6aaa}
+.agent-card.building{border-color:#f0a030;box-shadow:0 0 6px rgba(240,160,48,.15)}
+.agent-card.done{border-color:#30d060;box-shadow:0 0 6px rgba(48,208,96,.15)}
+.agent-card.failed{border-color:#c74444;box-shadow:0 0 6px rgba(199,68,68,.22)}
+.agent-card .card-top{display:flex;justify-content:space-between;align-items:center}
+.agent-card .aname{color:#4a9eff;font-weight:bold;font-size:11px}
+.agent-card .abtn-remove{background:none;border:none;color:#664444;font-size:11px;cursor:pointer;padding:0 2px;line-height:1;transition:color .15s}
+.agent-card .abtn-remove:hover{color:#ff4444}
+.agent-card .astatus{color:#888;font-size:10px;margin-top:2px}
+.agent-card .abldg,.agent-card .aengine,.agent-card .atask{color:#666;font-size:9px;margin-top:2px;line-height:1.3}
+.pbar{height:3px;background:#0a1a30;border-radius:2px;margin-top:5px;overflow:hidden}
+.pfill{height:100%;background:linear-gradient(90deg,#f0a030,#ffcc00);border-radius:2px;transition:width .3s;width:0}
+.pfill.complete{background:linear-gradient(90deg,#30d060,#60ff90)}
+#minimap{position:fixed;left:186px;bottom:10px;width:160px;height:100px;background:rgba(0,12,20,.8);border:1px solid #1a3a6a;border-radius:3px;z-index:15}
+#fps-counter{position:fixed;left:10px;top:50px;color:#3a5a3a;font-size:9px;z-index:15}
+#task-drawer{position:fixed;right:272px;bottom:10px;width:360px;height:280px;background:rgba(2,12,28,.95);border:1px solid #1d4e82;border-radius:4px;z-index:18;display:none;overflow:hidden;box-shadow:0 16px 32px rgba(0,0,0,.35)}
+#task-drawer.open{display:block}
+#task-drawer .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:linear-gradient(180deg,rgba(16,38,74,.98),rgba(8,22,46,.95));border-bottom:1px solid #1a3a6a}
+#task-drawer .drawer-title{font-size:12px;color:#b9dcff;font-weight:bold}
+#task-drawer .drawer-close{background:none;border:none;color:#8eaed8;font-size:16px;cursor:pointer;line-height:1}
+#task-drawer .drawer-close:hover{color:#fff}
+#task-drawer .drawer-body{height:calc(100% - 42px);padding:10px 12px;overflow:auto}
+.drawer-meta{display:grid;grid-template-columns:92px 1fr;gap:6px 10px;font-size:10px;margin-bottom:10px}
+.drawer-meta dt{color:#5c84b5}
+.drawer-meta dd{color:#c2ddff}
+.drawer-section{margin-bottom:12px}
+.drawer-section h4{font-size:10px;color:#78aef0;margin-bottom:4px}
+.drawer-section pre{background:rgba(4,16,36,.9);border:1px solid #15365c;border-radius:3px;padding:8px;color:#c7e0ff;font-size:10px;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:74px;overflow:auto}
+</style>
+</head>
+<body>
+<div id="top-bar">
+  <span class="title">⚙ SCV AGENT MONITOR — StarCraft Build Animation</span>
+  <div id="controls">
+    <select class="ctrl-select" id="agent-engine">
+      <option value="codex">Codex</option>
+      <option value="claude">Claude</option>
+      <option value="gemini">Gemini</option>
+    </select>
+    <input class="ctrl-input" id="task-prompt" placeholder="작업 프롬프트를 입력하면 SCV가 배럭을 다시 짓습니다" />
+    <button class="btn" id="btn-spawn">+ 에이전트 추가</button>
+    <button class="btn" id="btn-start">▶ 작업 시작</button>
+    <button class="btn" id="btn-reset">↺ 리셋</button>
+    <button class="btn" id="btn-music">♪ 음악</button>
+    <span class="info" id="agent-count">에이전트: 0</span>
+    <span class="info" id="live-status">MOCK DEMO</span>
+  </div>
+</div>
+<canvas id="game-canvas"></canvas>
+<div id="left-panel">
+  <div class="panel-title">작전 레이어</div>
+  <div class="layer-copy" id="layer-copy">브라우저 모드에서는 mock 작업만 실행됩니다.</div>
+  <div id="engine-status-list"></div>
+</div>
+<div id="side-panel">
+  <div class="panel-title">에이전트 목록</div>
+  <div id="agent-list"></div>
+</div>
+<canvas id="minimap"></canvas>
+<div id="fps-counter"></div>
+<aside id="task-drawer">
+  <div class="drawer-head">
+    <div class="drawer-title" id="drawer-title">작업 상세</div>
+    <button class="drawer-close" id="drawer-close">×</button>
+  </div>
+  <div class="drawer-body">
+    <dl class="drawer-meta">
+      <dt>엔진</dt><dd id="drawer-engine">-</dd>
+      <dt>상태</dt><dd id="drawer-phase">-</dd>
+      <dt>작업명</dt><dd id="drawer-task">-</dd>
+      <dt>변경 파일</dt><dd id="drawer-files-meta">-</dd>
+    </dl>
+    <div class="drawer-section">
+      <h4>프롬프트</h4>
+      <pre id="drawer-prompt">(선택된 작업이 없습니다)</pre>
+    </div>
+    <div class="drawer-section">
+      <h4>요약</h4>
+      <pre id="drawer-summary">(아직 없음)</pre>
+    </div>
+    <div class="drawer-section">
+      <h4>실행 로그</h4>
+      <pre id="drawer-logs">(아직 없음)</pre>
+    </div>
+  </div>
+</aside>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SCV AGENT ANIMATION — Pure Canvas + Web Audio, Zero Dependencies
+// ═══════════════════════════════════════════════════════════════
+
+const MOVE_SPEED=165,PATROL_SPEED=75,BUILD_SPEED=0.06,TILE=32;
+const MAP_IMG_W=2272,MAP_IMG_H=1420;
+const BLDG_TYPES=[
+  {id:'barracks',name:'배럭',w:124,h:100,color:'#8a5a4a',colorR:138,colorG:90,colorB:74},
+];
+const SCV_VOICES=['scv_ready','scv_yessir','scv_orders','scv_rightaway','scv_affirmative','scv_ireadyou'];
+const VOICE_FILES={scv_ready:'../assets/sounds/voices/scv_reportin.mp3',scv_yessir:'../assets/sounds/voices/scv_yessir.mp3',scv_orders:'../assets/sounds/voices/scv_orders.mp3',scv_rightaway:'../assets/sounds/voices/scv_rogerthat.mp3',scv_rightaway_sir:'../assets/sounds/voices/scv_rightaway_sir.mp3',scv_jobdone:'../assets/sounds/voices/scv_jobfini.mp3',scv_explo:'../assets/sounds/voices/scv_explo.mp3',scv_affirmative:'../assets/sounds/voices/scv_affirmative.mp3',scv_ireadyou:'../assets/sounds/voices/scv_ireadyou.mp3',scv_build:'../assets/sounds/voices/scv_build.mp3'};
+const MUSIC_FILES=['../assets/sounds/music/terran1.mp3','../assets/sounds/music/terran2.mp3','../assets/sounds/music/terran3.mp3'];
+// === SCV Sprite Atlas (scv_clean.png): 9cols×44px, 2rows×42px ===
+const SCV_CELL=42,SCV_ROW_H=49,SCV_SCALE=1.53;
+const SCV_DIR16=[
+  [4,false],[5,false],[6,false],[7,false],[8,false],
+  [7,true],[6,true],[5,true],[4,true],[3,true],
+  [2,true],[1,true],[0,false],[1,false],[2,false],[3,false]
+];
+const SCV_TURN_RATE=55;
+const SCV_ACCEL=8;
+const SCV_DECEL_DIST=30;
+let scvImg=null;
+const BARR_STAGES=[
+  {x:16,  w:59},
+  {x:124, w:60},
+  {x:228, w:108},
+  {x:370, w:115},
+  {x:502, w:124},
+  {x:644, w:124},
+];
+const BARR_Y=135,BARR_H=111;
+let bldgImg=null;
+const canvas=document.getElementById('game-canvas');
+const ctx=canvas.getContext('2d');
+const miniCanvas=document.getElementById('minimap');
+const miniCtx=miniCanvas.getContext('2d');
+let W,H,WORLD_W=1200,WORLD_H=750,cam={x:0,y:0},keys={},mouse={down:false,px:0,py:0,button:-1};
+let agents=[],nextId=1,time=0,lastT=0,dt=0;
+let audioCtx=null,soundsOk=false,sounds={},audioEls={},bgMusic=null,bgPlaying=false,musicIdx=0;
+const liveAPI=window.clawcraft||null;
+const liveMode=!!liveAPI;
+const engineStatuses=new Map();
+let drawerAgentId=null;
+let liveConstraint='mock';
+let bootstrapped=false;
+
+// ═══════════════════════════════════════════════════════════════
+// SC1 SELECTION & COMMAND STATE
+// ═══════════════════════════════════════════════════════════════
+let selectedAgents=new Set();
+let dragBox=null;
+let moveMarkers=[];
+let mouseScreenX=0,mouseScreenY=0;
+let cursorOnCanvas=false;
+const MANUAL_IDLE_TIME=5;
+
+function resize(){W=window.innerWidth-260;H=window.innerHeight-44;canvas.width=W;canvas.height=H;WORLD_W=W;WORLD_H=H;miniCanvas.width=160;miniCanvas.height=100;}
+window.addEventListener('resize',resize);resize();
+
+function fmtEngine(engine,model){
+  return model?`${engine.toUpperCase()} · ${model}`:engine.toUpperCase();
+}
+function findAgent(id){return agents.find(a=>String(a.id)===String(id));}
+function summarizePrompt(prompt){
+  if(!prompt)return'대기 중';
+  return prompt.replace(/\s+/g,' ').trim().slice(0,56)||'대기 중';
+}
+function agentStatusMeta(a){
+  if(a.runStatus==='failed')return{text:'실패',color:'#ff7d7d'};
+  if(a.runStatus==='cancelled')return{text:'취소됨',color:'#c89d64'};
+  if(a.runStatus==='running'){
+    const labelMap={planning:'기획 중',coding:'코딩 중',testing:'검증 중',summarizing:'정리 중',done:'완료'};
+    return{text:a.runLabel||labelMap[a.runPhase]||'작업 중',color:a.runPhase==='done'?'#40ff40':'#f0a030'};
+  }
+  const stMap={idle:'대기',move_to_build:'이동 중...',building:`건설 중 ${a.progress*100|0}%`,complete:'건설 완료!',patrol:'순찰 중',idle_at_bldg:'건물 근처 대기',manual_move:'이동 중...',manual_idle:'대기 중...',demolishing:'철거 중'};
+  const cMap={idle:'#666',move_to_build:'#4a9eff',building:'#f0a030',complete:'#40ff40',patrol:'#60aa60',idle_at_bldg:'#506050',manual_move:'#4a9eff',manual_idle:'#666',demolishing:'#ff7070'};
+  return{text:stMap[a.state]||'',color:cMap[a.state]||'#888'};
+}
+function updateLiveStatus(text){
+  document.getElementById('live-status').textContent=text;
+}
+function renderEngineList(){
+  const host=document.getElementById('engine-status-list');
+  const items=[...engineStatuses.values()];
+  if(!items.length){
+    host.innerHTML='<div class="engine-item"><div class="name">Mock</div><div class="meta">브라우저 데모 모드</div></div>';
+    return;
+  }
+  host.innerHTML=items.map((engine)=>`<div class="engine-item${engine.available?'':' offline'}"><div class="name">${engine.label}</div><div class="meta">${engine.available?'CLI 사용 가능':'이 머신에서 CLI 없음'}</div></div>`).join('');
+}
+function syncDrawer(){
+  const drawer=document.getElementById('task-drawer');
+  if(!drawerAgentId){
+    drawer.classList.remove('open');
+    return;
+  }
+  const a=findAgent(drawerAgentId);
+  if(!a){
+    drawerAgentId=null;
+    drawer.classList.remove('open');
+    return;
+  }
+  drawer.classList.add('open');
+  document.getElementById('drawer-title').textContent=`${a.name} 작업 상세`;
+  document.getElementById('drawer-engine').textContent=fmtEngine(a.engine||'mock',a.model||'demo');
+  document.getElementById('drawer-phase').textContent=agentStatusMeta(a).text||'대기';
+  document.getElementById('drawer-task').textContent=a.taskTitle||'대기 중';
+  document.getElementById('drawer-files-meta').textContent=a.filesChanged?.length?`${a.filesChanged.length}개`:a.runStatus==='done'?'0개':'-';
+  document.getElementById('drawer-prompt').textContent=a.runPrompt||'(선택된 작업이 없습니다)';
+  document.getElementById('drawer-summary').textContent=a.runSummary||'(아직 없음)';
+  document.getElementById('drawer-logs').textContent=(a.runLogs&&a.runLogs.length)?a.runLogs.slice(-18).join('\n\n'):'(아직 없음)';
+}
+function openTaskDrawer(agentId){drawerAgentId=String(agentId);syncDrawer();}
+function closeTaskDrawer(){drawerAgentId=null;syncDrawer();}
+
+// ═══════════════════════════════════════════════════════════════
+// SOUND — Web Audio Synthesis
+// ═══════════════════════════════════════════════════════════════
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  genSounds();soundsOk=true;
+  Object.entries(VOICE_FILES).forEach(([k,p])=>{const a=new Audio(p);a.preload='auto';audioEls[k]=a;});
+}
+function toggleMusic(){
+  if(!bgMusic){bgMusic=new Audio(MUSIC_FILES[musicIdx]);bgMusic.volume=0.22;bgMusic.onended=()=>{musicIdx=(musicIdx+1)%MUSIC_FILES.length;bgMusic.src=MUSIC_FILES[musicIdx];bgMusic.play().catch(()=>{});}}
+  if(bgPlaying){bgMusic.pause();bgPlaying=false;document.getElementById('btn-music').textContent='♪ 음악';}
+  else{bgMusic.play().then(()=>{bgPlaying=true;document.getElementById('btn-music').textContent='♪ ON';}).catch(()=>{});}
+}
+function genSounds(){
+  sounds.scv_ready=mkVoice(180,6,30,.15,.55);
+  sounds.scv_yessir=mkVoice(210,9,45,.12,.45);
+  sounds.scv_orders=mkVoice(170,5,25,.18,.5);
+  sounds.scv_rightaway=mkVoice(225,11,50,.10,.48);
+  sounds.scv_jobdone=mkVoice(195,7,35,.14,.65);
+  sounds.weld=mkWeld(2.5);
+  sounds.weld_short=mkWeld(.35);
+  sounds.ching=mkChing();
+  sounds.complete=mkComplete();
+  sounds.click=mkTone(1200,.06,80);
+  sounds.select=mkSelect();
+}
+function mkVoice(bf,mr,md,na,dur){
+  const sr=audioCtx.sampleRate,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++){
+    const t=i/sr,env=Math.min(1,t/.03)*Math.min(1,(dur-t)/.08);
+    const f=bf+Math.sin(6.283*mr*t)*md;
+    const v=Math.sin(6.283*f*t)+Math.sin(6.283*f*2.5*t)*.4+Math.sin(6.283*f*3.8*t)*.15;
+    const n=(Math.random()*2-1)*na,syl=Math.max(0,Math.sin(6.283*(4+dur*2)*t));
+    let s=(v+n+Math.sin(6.283*60*t)*.05)*env*syl*.3;
+    s=Math.tanh(s*2.5)*.35;
+    if(t<.04||t>dur-.04)s+=(Math.random()*2-1)*.12*(1-Math.min(t,dur-t)/.04);
+    d[i]=s;
+  }return buf;
+}
+function mkWeld(dur){
+  const sr=audioCtx.sampleRate,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++){
+    const t=i/sr;
+    const env=(.6+.4*Math.sin(6.283*3*t))*Math.min(1,t/.02)*Math.min(1,(dur-t)/.05);
+    const c1=Math.sin(6.283*3200*t)*Math.max(0,Math.sin(6.283*12*t));
+    const c2=Math.sin(6.283*4800*t)*Math.max(0,Math.sin(6.283*18*t+1));
+    const sz=(Math.random()*2-1)*Math.max(0,Math.sin(6.283*8*t))*.5;
+    const sp=Math.random()>.97?(Math.random()*2-1)*.8:0;
+    d[i]=Math.tanh((c1*.2+c2*.15+sz+Math.sin(6.283*120*t)*.15+sp)*env*.2*3)*.25;
+  }return buf;
+}
+function mkChing(){
+  const sr=audioCtx.sampleRate,dur=0.55,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+  const hits=[0, 0.22];
+  for(let i=0;i<len;i++){
+    const t=i/sr;
+    let s=0;
+    hits.forEach(ht=>{
+      const dt=t-ht;if(dt<0)return;
+      const env=Math.exp(-dt*28)*(1-Math.exp(-dt*600));
+      const f1=2200+ht*300;
+      const f2=3800+ht*200;
+      const metallic=Math.sin(6.283*f1*dt)*0.55+Math.sin(6.283*f2*dt)*0.3+Math.sin(6.283*f1*2.76*dt)*0.12;
+      const impact=Math.exp(-dt*180)*(Math.random()*2-1)*0.4;
+      s+=Math.tanh((metallic+impact)*1.8)*env*0.35;
+    });
+    d[i]=s;
+  }return buf;
+}
+function mkComplete(){
+  const sr=audioCtx.sampleRate,len=sr*1|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++){
+    const t=i/sr;
+    const n1=Math.sin(6.283*880*t)*Math.max(0,1-t/.5)*(t<.5?1:0);
+    const n2=Math.sin(6.283*1320*t)*Math.max(0,1-(t-.25)/.75)*(t>.25?1:0);
+    d[i]=(n1*.3+n2*.25+Math.sin(6.283*2640*t)*Math.exp(-t*4)*.12)*.3;
+  }return buf;
+}
+function mkTone(f,dur,decay){
+  const sr=audioCtx.sampleRate,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++){const t=i/sr;d[i]=Math.sin(6.283*f*t)*Math.exp(-t*decay)*.25;}return buf;
+}
+function mkSelect(){
+  const sr=audioCtx.sampleRate,len=sr*.12|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++){const t=i/sr;d[i]=Math.sin(6.283*(600+t*2000)*t)*Math.exp(-t*25)*.2;}return buf;
+}
+function play(name,vol){
+  if(!soundsOk||!sounds[name])return null;
+  const s=audioCtx.createBufferSource(),g=audioCtx.createGain();
+  g.gain.value=vol||1;s.buffer=sounds[name];s.connect(g);g.connect(audioCtx.destination);s.start(0);return s;
+}
+let vq=[],vp=false;
+function playV(n){vq.push(n);if(!vp)drainV();}
+function drainV(){
+  if(!vq.length){vp=false;return;}vp=true;const name=vq.shift();
+  const ae=audioEls[name];
+  if(ae){ae.currentTime=0;ae.volume=0.7;ae.addEventListener('ended',()=>setTimeout(drainV,150),{once:true});ae.play().catch(()=>setTimeout(drainV,150));}
+  else{const s=play(name,.7);if(s)s.onended=()=>setTimeout(drainV,150);else drainV();}
+}
+
+const buildAudioEls=new Map();
+function startWeld(id){
+  if(!audioEls.scv_build||buildAudioEls.has(id))return;
+  const ba=new Audio(audioEls.scv_build.src);
+  ba.loop=true;ba.volume=0.38;ba.play().catch(()=>{});
+  buildAudioEls.set(id,ba);
+}
+function stopWeld(id){
+  const ba=buildAudioEls.get(id);
+  if(ba){ba.pause();ba.currentTime=0;buildAudioEls.delete(id);}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAWING
+// ═══════════════════════════════════════════════════════════════
+function rr(x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.fill();
+}
+function rrs(x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.stroke();
+}
+function label(x,y,t,c,sz){
+  ctx.font=(sz||10)+'px Consolas,monospace';ctx.textAlign='center';
+  ctx.strokeStyle='#000';ctx.lineWidth=2.5;ctx.strokeText(t,x,y);
+  ctx.fillStyle=c;ctx.fillText(t,x,y);
+}
+
+// Load sprite images
+let mapImg=null,cursorImg=null,hoverCursorImg=null,arrowCursorImg=null,gasImg=null,waterMaskImg=null;
+let moveMarkerImgs=[null,null,null]; // small, medium, large
+// Vespene gas animation: 8 frames, 28px cells
+const GAS_FRAMES=8,GAS_CELL=28,GAS_H=34,GAS_FPS=8,GAS_SCALE=1.75,GAS_CYCLE_PAUSE=2;
+// Geyser position as fraction of map image, each with independent animation
+const GEYSER_POS=[
+  {mx:0.4,my:0.69,frame:0,ft:0,paused:false,pt:0},
+  {mx:0.44,my:0.68,frame:0,ft:0,paused:true,pt:GAS_CYCLE_PAUSE-0.8},
+];
+function loadScvSprite(){
+  scvImg=new Image(); scvImg.src='./assets/scv_shadow_atlas.png';
+  mapImg=new Image(); mapImg.src='./assets/map.png';
+  bldgImg=new Image(); bldgImg.src='./assets/buildings.png';
+  cursorImg=new Image(); cursorImg.src='./assets/sc_cursor_webp_0.png';
+  hoverCursorImg=new Image(); hoverCursorImg.src='./assets/sc_cursor_green_circle_spritesheet.png';
+  arrowCursorImg=new Image(); arrowCursorImg.src='./assets/sc1_green_arrow_spritesheet.png';
+  gasImg=new Image(); gasImg.src='./assets/vespene_gas.png';
+  waterMaskImg=new Image(); waterMaskImg.src='./assets/water_mask.png';
+  moveMarkerImgs[0]=new Image(); moveMarkerImgs[0].src='./assets/sc1_move_marker_small.png';
+  moveMarkerImgs[1]=new Image(); moveMarkerImgs[1].src='./assets/sc1_move_marker_medium.png';
+  moveMarkerImgs[2]=new Image(); moveMarkerImgs[2].src='./assets/sc1_move_marker_large.png';
+}
+
+function drawScvSprite(cx,cy,dir16,frame){
+  if(!scvImg||!scvImg.complete||!scvImg.naturalWidth) return;
+  const di=((Math.round(dir16)%16)+16)%16;
+  const [col,flip]=SCV_DIR16[di];
+  const sx=col*SCV_CELL;
+  const dw=SCV_CELL*SCV_SCALE;
+  const dh=SCV_ROW_H*SCV_SCALE;
+  const px=Math.round(cx),py=Math.round(cy);
+  ctx.save();
+  ctx.translate(px,py);
+  if(flip)ctx.scale(-1,1);
+  ctx.drawImage(scvImg,sx,0,SCV_CELL,SCV_ROW_H,-dw/2,-dh+10,dw,dh);
+  ctx.restore();
+}
+
+function drawBarracks(bx,by,stageIdx){
+  if(!bldgImg||!bldgImg.complete||!bldgImg.naturalWidth) return;
+  const s=BARR_STAGES[Math.min(stageIdx,5)];
+  const scale=1.2;
+  const dw=s.w*scale,dh=BARR_H*scale;
+  ctx.drawImage(bldgImg,s.x,BARR_Y,s.w,BARR_H,bx-dw/2,by-dh+14,dw,dh);
+}
+
+function drawBldg(bx,by,type,progress){
+  const stageIdx=Math.min(5,Math.floor(progress*6));
+  const s=BARR_STAGES[stageIdx];
+  const scale=1.2;
+  const dw=s.w*scale,dh=BARR_H*scale;
+  ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(bx,by+8,dw*0.4,8,0,0,6.283);ctx.fill();
+  if(bldgImg&&bldgImg.complete&&bldgImg.naturalWidth){
+    ctx.drawImage(bldgImg,s.x,BARR_Y,s.w,BARR_H,bx-dw/2,by-dh+14,dw,dh);
+  } else {
+    ctx.fillStyle='#4a5a6a';ctx.fillRect(bx-30,by-40,60,40);
+  }
+  if(progress<0.99&&progress>0.01){
+    ctx.strokeStyle='rgba(240,160,48,.4)';ctx.lineWidth=1;ctx.setLineDash([5,4]);
+    ctx.strokeRect(bx-dw/2,by-dh+14,dw,dh);ctx.setLineDash([]);
+  }
+  if(progress>=0.99){
+    ctx.strokeStyle='rgba(74,144,208,.3)';ctx.lineWidth=1;
+    ctx.strokeRect(bx-dw/2,by-dh+14,dw,dh);
+  }
+}
+
+// Draw vespene gas animation at geyser positions (each independent)
+function drawVespeneGas(){
+  if(!gasImg||!gasImg.complete||!gasImg.naturalWidth) return;
+  const sc=Math.max(W/MAP_IMG_W,H/MAP_IMG_H);
+  const mw=MAP_IMG_W*sc,mh=MAP_IMG_H*sc;
+  const ox=(W-mw)/2,oy=(H-mh)/2;
+  const dw=GAS_CELL*GAS_SCALE,dh=GAS_H*GAS_SCALE;
+  GEYSER_POS.forEach(g=>{
+    if(g.paused){
+      g.pt-=dt;
+      if(g.pt<=0){g.paused=false;g.frame=0;g.ft=0;}
+    } else {
+      g.ft+=dt;
+      if(g.ft>1/GAS_FPS){g.ft-=1/GAS_FPS;g.frame++;
+        if(g.frame>=GAS_FRAMES){g.frame=0;g.paused=true;g.pt=GAS_CYCLE_PAUSE;}
+      }
+      if(!g.paused){
+        const fi=Math.floor(g.frame)%GAS_FRAMES;
+        const gx=ox+g.mx*mw;
+        const gy=oy+g.my*mh;
+        ctx.drawImage(gasImg,fi*GAS_CELL,0,GAS_CELL,GAS_H,gx-dw/2,gy-dh,dw,dh);
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SC1 WATER RIPPLE — animated shimmer on water areas
+// ═══════════════════════════════════════════════════════════════
+// Pixel-accurate water mask clipping
+let waterCanvas=null,waterCtx=null;
+function drawWaterRipple(){
+  if(!waterMaskImg||!waterMaskImg.complete||!waterMaskImg.naturalWidth)return;
+  if(!mapImg||!mapImg.complete||!mapImg.naturalWidth)return;
+  const sc=Math.max(W/MAP_IMG_W,H/MAP_IMG_H);
+  const mw=MAP_IMG_W*sc,mh=MAP_IMG_H*sc;
+  const ox=(W-mw)/2,oy=(H-mh)/2;
+  if(!waterCanvas){waterCanvas=document.createElement('canvas');}
+  waterCanvas.width=W;waterCanvas.height=H;
+  waterCtx=waterCanvas.getContext('2d');
+  waterCtx.clearRect(0,0,W,H);
+  // Draw wave lines across full viewport
+  waterCtx.save();
+  for(let i=0;i<10;i++){
+    const phase=time*0.12+i*1.2;
+    const waveY=((Math.sin(phase)*0.5+0.5)*H+i*H/10)%H;
+    const alpha=0.1+0.06*Math.sin(time*0.6+i);
+    waterCtx.strokeStyle=`rgba(130,170,230,${alpha})`;
+    waterCtx.lineWidth=2+Math.sin(time*0.3+i)*0.8;
+    waterCtx.beginPath();
+    for(let px=0;px<W;px+=4){
+      const py=waveY+Math.sin(px*0.02+time*0.2+i*0.8)*5;
+      if(px===0)waterCtx.moveTo(px,py);else waterCtx.lineTo(px,py);
+    }
+    waterCtx.stroke();
+  }
+  const pulse=0.06+0.04*Math.sin(time*0.6);
+  waterCtx.fillStyle=`rgba(80,130,200,${pulse})`;
+  waterCtx.fillRect(0,0,W,H);
+  waterCtx.restore();
+  // Mask: only keep pixels where water_mask is opaque
+  waterCtx.globalCompositeOperation='destination-in';
+  waterCtx.drawImage(waterMaskImg,ox,oy,mw,mh);
+  waterCtx.globalCompositeOperation='source-over';
+  // Composite result onto main canvas
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  ctx.drawImage(waterCanvas,0,0);
+  ctx.restore();
+}
+
+function drawPbar(x,y,w,p,done){
+  ctx.fillStyle='rgba(0,0,0,.5)';rr(x,y,w,4,2);
+  if(p>0){ctx.fillStyle=done?'#30d060':'#f0a030';rr(x,y,w*p,4,2);}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SC1 CURSOR — Real StarCraft 1 cursor image
+// ═══════════════════════════════════════════════════════════════
+const SC1_CURSOR_SIZE=40; // draw size on screen
+const SC1_CURSOR_OX=-5,SC1_CURSOR_OY=-10; // hotspot offset (arrow tip alignment)
+// Arrow cursor animation: 6 frames, 32x32 each in spritesheet
+const ARROW_FRAMES=5,ARROW_CELL=40,ARROW_FPS=8;
+let arrowFrame=0,arrowFrameT=0;
+// Hover cursor (green spinning circle): 14 frames, 41x41 each in spritesheet
+const HOVER_FRAMES=14,HOVER_CELL=41,HOVER_SIZE=48,HOVER_FPS=14;
+let hoverFrame=0,hoverFrameT=0;
+let cursorHovering=false;
+function drawSC1Cursor(x,y){
+  const wx=x+cam.x,wy=y+cam.y;
+  cursorHovering=agents.some(a=>a.hit(wx,wy)||a.hitBldg(wx,wy));
+  if(cursorHovering&&hoverCursorImg&&hoverCursorImg.complete&&hoverCursorImg.naturalWidth){
+    // Spinning green circle cursor
+    const fi=Math.floor(hoverFrame)%HOVER_FRAMES;
+    ctx.drawImage(hoverCursorImg,fi*HOVER_CELL,0,HOVER_CELL,HOVER_CELL,x-HOVER_SIZE/2,y-HOVER_SIZE/2,HOVER_SIZE,HOVER_SIZE);
+  } else if(arrowCursorImg&&arrowCursorImg.complete&&arrowCursorImg.naturalWidth){
+    // Animated arrow cursor with shimmer
+    const fi=Math.floor(arrowFrame)%ARROW_FRAMES;
+    ctx.drawImage(arrowCursorImg,fi*ARROW_CELL,0,ARROW_CELL,ARROW_CELL,x+SC1_CURSOR_OX,y+SC1_CURSOR_OY,SC1_CURSOR_SIZE,SC1_CURSOR_SIZE);
+  } else if(cursorImg&&cursorImg.complete&&cursorImg.naturalWidth){
+    ctx.drawImage(cursorImg,x+SC1_CURSOR_OX,y+SC1_CURSOR_OY,SC1_CURSOR_SIZE,SC1_CURSOR_SIZE);
+  }
+  // Advance animations
+  arrowFrameT+=dt;
+  if(arrowFrameT>1/ARROW_FPS){arrowFrameT-=1/ARROW_FPS;arrowFrame=(arrowFrame+1)%ARROW_FRAMES;}
+  hoverFrameT+=dt;
+  if(hoverFrameT>1/HOVER_FPS){hoverFrameT-=1/HOVER_FPS;hoverFrame=(hoverFrame+1)%HOVER_FRAMES;}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SC1 MOVE MARKER — Green ellipse with random size cycle animation
+// ═══════════════════════════════════════════════════════════════
+// Random cycle patterns: indices 0=small, 1=medium, 2=large
+const MARKER_CYCLES=[
+  [1,2,1],
+  [1,2,0],
+  [2,1,0],
+  [0,1,2,1,0],
+  [1,2,1,0],
+];
+const MARKER_FRAME_DUR=0.06; // seconds per frame (2x faster)
+const MARKER_DRAW_SCALE=1.08; // scale marker images
+const MARKER_OX=-3,MARKER_OY=-3; // offset: slightly upper-left
+function updateAndDrawMoveMarkers(d){
+  moveMarkers=moveMarkers.filter(m=>{
+    m.t+=d;
+    const totalDur=m.cycle.length*MARKER_FRAME_DUR;
+    if(m.t>=totalDur)return false;
+    const fi=Math.min(Math.floor(m.t/MARKER_FRAME_DUR),m.cycle.length-1);
+    const imgIdx=m.cycle[fi]; // 0,1,2 = small,medium,large
+    const img=moveMarkerImgs[imgIdx];
+    if(img&&img.complete&&img.naturalWidth){
+      const sx=m.x-cam.x+MARKER_OX,sy=m.y-cam.y+MARKER_OY;
+      const dw=img.naturalWidth*MARKER_DRAW_SCALE;
+      const dh=img.naturalHeight*MARKER_DRAW_SCALE;
+      ctx.drawImage(img,sx-dw/2,sy-dh/2,dw,dh);
+    }
+    return true;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SC1 DRAG SELECTION BOX
+// ═══════════════════════════════════════════════════════════════
+function drawDragBox(){
+  if(!dragBox||!dragBox.started)return;
+  const x=Math.min(dragBox.sx,dragBox.ex);
+  const y=Math.min(dragBox.sy,dragBox.ey);
+  const w=Math.abs(dragBox.ex-dragBox.sx);
+  const h=Math.abs(dragBox.ey-dragBox.sy);
+  ctx.save();
+  ctx.fillStyle='rgba(0,255,0,0.08)';
+  ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle='#00ff00';
+  ctx.lineWidth=1;
+  ctx.strokeRect(x,y,w,h);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TERRAIN CACHE
+// ═══════════════════════════════════════════════════════════════
+let terrainImg=null;
+
+function drawMineralPatch(g,rng,cx,cy,count){
+  for(let i=0;i<count;i++){
+    const a=-0.72+i*(1.44/(count-1)),dist=26+(i%2)*10;
+    const mx=cx+Math.cos(a)*dist,my=cy+Math.sin(a)*dist*0.52;
+    const sz=9+rng()*3.5,bv=0.72+rng()*0.28;
+    g.fillStyle=`rgb(${(68*bv+18)|0},${(128*bv+28)|0},${(192*bv+38)|0})`;
+    g.beginPath();g.moveTo(mx,my-sz*.75);g.lineTo(mx+sz*.45,my);g.lineTo(mx+sz*.3,my+sz*.5);g.lineTo(mx-sz*.3,my+sz*.5);g.lineTo(mx-sz*.45,my);g.closePath();g.fill();
+    g.fillStyle='rgba(175,218,255,0.58)';g.beginPath();g.moveTo(mx,my-sz*.7);g.lineTo(mx+sz*.18,my-sz*.12);g.lineTo(mx,my-sz*.12);g.closePath();g.fill();
+    g.strokeStyle='rgba(0,20,55,0.4)';g.lineWidth=0.8;g.stroke();
+  }
+}
+function drawGeyser(g,rng,cx,cy){
+  g.fillStyle='rgb(60,66,50)';g.beginPath();g.ellipse(cx,cy,24,17,0,0,6.283);g.fill();
+  g.strokeStyle='rgb(86,92,70)';g.lineWidth=2;g.stroke();
+  for(let i=0;i<6;i++){const gx=cx+(rng()-.5)*18,gy=cy-10-rng()*16,gr=7+rng()*11;g.fillStyle=`rgba(${38+rng()*24|0},${108+rng()*52|0},${50+rng()*30|0},${.33+rng()*.3})`;g.beginPath();g.arc(gx,gy,gr,0,6.283);g.fill();}
+  g.fillStyle='rgb(16,24,12)';g.beginPath();g.ellipse(cx,cy,11,7.5,0,0,6.283);g.fill();
+  g.fillStyle='rgba(44,164,72,0.26)';g.beginPath();g.ellipse(cx,cy-6,8,13,0,0,6.283);g.fill();
+}
+
+function genTerrain(){
+  let _s=0xDEADBEEF;
+  const rng=()=>{_s=Math.imul(_s^(_s>>>16),0x45d9f3b);_s=Math.imul(_s^(_s>>>16),0x45d9f3b);_s^=_s>>>16;return(_s>>>0)/4294967296;};
+
+  const TW=1400,TH=900; // fallback terrain size
+  const c=document.createElement('canvas');c.width=TW;c.height=TH;const g=c.getContext('2d');
+  const COLS=Math.ceil(TW/TILE),ROWS=Math.ceil(TH/TILE);
+  const LOW=0,HIGH=1,CLIFF=2,RAMP=3,DEEP=4;
+  const map=new Uint8Array(COLS*ROWS).fill(LOW);
+  const T=(x,y)=>x>=0&&x<COLS&&y>=0&&y<ROWS?map[y*COLS+x]:LOW;
+  const S=(x,y,v)=>{if(x>=0&&x<COLS&&y>=0&&y<ROWS)map[y*COLS+x]=v;};
+
+  const cliffRow=19;
+  for(let y=cliffRow+1;y<ROWS;y++) for(let x=0;x<COLS;x++) S(x,y,HIGH);
+
+  const rampA=3,rampB=9;
+  for(let x=0;x<COLS;x++) S(x,cliffRow,x>=rampA&&x<=rampB?RAMP:CLIFF);
+
+  for(let x=0;x<COLS;x++){if(T(x,cliffRow)===CLIFF&&rng()<.14)S(x,cliffRow-1,CLIFF);}
+
+  [[2,5,3,3],[41,6,3,3],[5,14,2,2],[38,12,2,2],[19,3,2,2],[13,17,2,2],[30,16,2,2],[25,8,3,2],[9,10,2,2],[35,3,2,2]].forEach(([cx,cy,rw,rh])=>{
+    for(let dy=-rh;dy<=rh;dy++) for(let dx=-rw;dx<=rw;dx++) if(T(cx+dx,cy+dy)===LOW)S(cx+dx,cy+dy,DEEP);
+  });
+
+  for(let ty=0;ty<ROWS;ty++) for(let tx=0;tx<COLS;tx++){
+    const px=tx*TILE,py=ty*TILE,t=T(tx,ty),v=.83+rng()*.17;
+    if(t===HIGH){
+      g.fillStyle=`rgb(${92*v|0},${76*v|0},${43*v|0})`;g.fillRect(px,py,TILE,TILE);
+      for(let d=0;d<3;d++){rng();rng();g.fillStyle=`rgba(${66+rng()*28|0},${54+rng()*22|0},${28+rng()*16|0},.22)`;g.fillRect(px+rng()*TILE,py+rng()*TILE,2+rng()*5,2+rng()*3);}
+    } else if(t===LOW){
+      g.fillStyle=`rgb(${36*v|0},${56*v|0},${22*v|0})`;g.fillRect(px,py,TILE,TILE);
+      for(let d=0;d<3;d++){rng();rng();g.fillStyle=`rgba(${22+rng()*18|0},${38+rng()*22|0},${12+rng()*14|0},.26)`;g.fillRect(px+rng()*TILE,py+rng()*TILE,3+rng()*5,2+rng()*4);}
+    } else if(t===DEEP){
+      g.fillStyle=`rgb(${22*v|0},${38*v|0},${12*v|0})`;g.fillRect(px,py,TILE,TILE);
+      rng();rng();g.fillStyle='rgba(0,0,0,.18)';g.fillRect(px+rng()*TILE,py+rng()*TILE,4+rng()*8,3+rng()*6);
+      rng();rng();
+    } else if(t===CLIFF){
+      const cv=.48+rng()*.18;g.fillStyle=`rgb(${44*cv|0},${36*cv|0},${20*cv|0})`;g.fillRect(px,py,TILE,TILE);
+    } else if(t===RAMP){
+      const gr=g.createLinearGradient(px,py,px,py+TILE);
+      gr.addColorStop(0,`rgb(${36*v|0},${56*v|0},${22*v|0})`);
+      gr.addColorStop(1,`rgb(${90*v|0},${74*v|0},${42*v|0})`);
+      g.fillStyle=gr;g.fillRect(px,py,TILE,TILE);rng();rng();
+    }
+  }
+
+  for(let tx=0;tx<COLS;tx++) for(let ty=0;ty<ROWS;ty++){
+    const t=T(tx,ty),px=tx*TILE,py=ty*TILE;
+    if(t===HIGH&&(T(tx,ty-1)===CLIFF||T(tx,ty-1)===RAMP)){
+      const sg=g.createLinearGradient(px,py,px,py+22);sg.addColorStop(0,'rgba(0,0,0,.58)');sg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=sg;g.fillRect(px,py,TILE,22);
+    }
+    if((t===LOW||t===DEEP)&&(T(tx,ty+1)===CLIFF||T(tx,ty+1)===HIGH)){
+      const sg=g.createLinearGradient(px,py+TILE-16,px,py+TILE);sg.addColorStop(0,'rgba(0,0,0,0)');sg.addColorStop(1,'rgba(0,0,0,.62)');g.fillStyle=sg;g.fillRect(px,py+TILE-16,TILE,16);
+    }
+  }
+
+  g.strokeStyle='rgba(0,0,0,.5)';g.lineWidth=1.8;
+  g.beginPath();g.moveTo(rampA*TILE,cliffRow*TILE);g.lineTo(rampA*TILE,(cliffRow+2)*TILE);g.stroke();
+  g.beginPath();g.moveTo((rampB+1)*TILE,cliffRow*TILE);g.lineTo((rampB+1)*TILE,(cliffRow+2)*TILE);g.stroke();
+  g.strokeStyle='rgba(0,0,0,.22)';g.lineWidth=.8;
+  for(let i=1;i<4;i++){const ry=cliffRow*TILE+i*(TILE/3);g.beginPath();g.moveTo(rampA*TILE,ry);g.lineTo((rampB+1)*TILE,ry);g.stroke();}
+
+  for(let ty=0;ty<ROWS-1;ty++) for(let tx=0;tx<COLS;tx++){
+    if(T(tx,ty)===DEEP&&rng()<.44){
+      const bx=tx*TILE+TILE*.5,by=ty*TILE+TILE*.55,nc=2+(rng()*3|0);
+      for(let i=0;i<nc;i++){
+        const tr=7+rng()*10,tcx=bx+(rng()-.5)*22,tcy=by+(rng()-.5)*18,tv=.52+rng()*.28;
+        g.fillStyle=`rgba(${15*tv|0},${32*tv|0},${8*tv|0},.9)`;g.beginPath();g.arc(tcx,tcy,tr,0,6.283);g.fill();
+        g.fillStyle=`rgba(${26*tv|0},${50*tv|0},${14*tv|0},.48)`;g.beginPath();g.arc(tcx-tr*.3,tcy-tr*.35,tr*.52,0,6.283);g.fill();
+      }
+    } else {rng();}
+  }
+
+  for(let i=0;i<30;i++){
+    const rx=40+rng()*(TW-80),ry=40+rng()*(TH-80);
+    const rt=T(rx/TILE|0,ry/TILE|0);
+    if(rt===LOW||rt===HIGH||rt===DEEP){
+      const rs=4+rng()*9,rh2=3+rng()*6,rv=.42+rng()*.28;
+      g.fillStyle=`rgba(${(46*rv+30)|0},${(40*rv+24)|0},${(22*rv+12)|0},.58)`;
+      g.beginPath();g.ellipse(rx,ry,rs,rh2,rng()*3.14,0,6.283);g.fill();
+      g.fillStyle='rgba(255,255,255,.055)';g.beginPath();g.ellipse(rx-rs*.22,ry-rh2*.25,rs*.42,rh2*.32,0,0,6.283);g.fill();
+    }
+  }
+
+  drawMineralPatch(g,rng,175,710,8);
+  drawMineralPatch(g,rng,1155,718,8);
+  drawMineralPatch(g,rng,655,552,6);
+  drawGeyser(g,rng,395,782);
+  drawGeyser(g,rng,975,788);
+  drawGeyser(g,rng,818,548);
+
+  terrainImg=c;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AGENT CLASS
+// ═══════════════════════════════════════════════════════════════
+class Agent{
+  constructor(id,name,sx,sy,bx,by,bt,meta={}){
+    this.id=id;this.name=name;this.x=sx;this.y=sy;
+    this.bx=bx;this.by=by;this.bt=bt;
+    this.state='idle';this.progress=0;
+    this.fr=0;this.ft=0;this._moving=false;
+    this.vDir=12;this.tDir=12;
+    this.spd=0;
+    this.tx=sx;this.ty=sy;this.mcb=null;
+    this.hx=sx;this.hy=sy;this.it=0;
+    this.pc={x:bx,y:by};this.pw=0;this.ipw=false;
+    this.selected=false; // SC1 persistent selection
+    this.sparks=[];
+    this.chingTimer=2.5;
+    this.flashAlpha=0;this.flashScale=1;
+    // Manual command state
+    this.manualTimer=0;this.prevAutoState=null;
+    this.engine=meta.engine||'mock';
+    this.model=meta.model||'demo';
+    this.role=meta.role||'builder';
+    this.runId=null;
+    this.runStatus='idle';
+    this.runPhase='idle';
+    this.runLabel='대기';
+    this.runPrompt='';
+    this.taskTitle='대기 중';
+    this.runSummary='';
+    this.runLogs=[];
+    this.filesChanged=[];
+    this.errorText='';
+    this.progressMode='auto';
+    this.targetProgress=0;
+    this.demolishTimer=0;
+    this.demolishNext=null;
+  }
+  syncMeta(meta={}){
+    this.engine=meta.engine||this.engine;
+    this.model=meta.model||this.model;
+    this.role=meta.role||this.role;
+    updateCard(this.id);
+  }
+  startBuild(opts={}){
+    const allowRestart=!!opts.force;
+    if(!allowRestart&&this.state!=='idle'&&this.state!=='manual_idle')return;
+    if(allowRestart&&this.state!=='idle'&&this.state!=='manual_idle'){
+      stopWeld(this.id);
+      this.state='idle';
+    }
+    if(opts.progressMode)this.progressMode=opts.progressMode;
+    if(typeof opts.targetProgress==='number')this.targetProgress=opts.targetProgress;
+    initAudio();playV('scv_yessir');playV('scv_rightaway');play('click',.3);
+    this.manualTimer=0;this.prevAutoState=null;
+    this.moveTo(this.bx-35,this.by+15,()=>this.setState('building'));
+    this.setState('move_to_build');
+  }
+  setState(s){
+    const old=this.state;this.state=s;
+    if(old==='building')stopWeld(this.id);
+    if(s==='building'){startWeld(this.id);this.chingTimer=2.5;}
+    if(s==='complete'){
+      this.progressMode='auto';
+      this.targetProgress=1;
+      this.runStatus=this.runStatus==='running'?'done':this.runStatus;
+      this.runPhase=this.runPhase==='idle'?'done':this.runPhase;
+      this.runLabel=this.runLabel==='대기'?'작업 완료':this.runLabel;
+      stopWeld(this.id);
+      this.flashAlpha=1;this.flashScale=1;
+      setTimeout(()=>playV('scv_jobdone'),400);
+      play('complete',.4);
+      setTimeout(()=>{if(this.state==='complete')this.startPatrol();},2000);
+    }
+    if(s==='demolishing'){stopWeld(this.id);}
+    updateCard(this.id);
+  }
+  beginLiveRun(run){
+    this.runId=run.id;
+    this.runStatus='running';
+    this.runPhase=run.phase||'planning';
+    this.runLabel='작업 준비 중';
+    this.runPrompt=run.prompt||this.runPrompt;
+    this.taskTitle=run.taskTitle||summarizePrompt(run.prompt);
+    this.runSummary='';
+    this.runLogs=[];
+    this.filesChanged=[];
+    this.errorText='';
+    this.progressMode='live';
+    this.targetProgress=Math.max(0.06,run.progress||0.08);
+    const restart=()=>{this.progress=0;this.startBuild({force:true,progressMode:'live',targetProgress:this.targetProgress});};
+    if(this.progress>0.02||this.state==='complete'||this.state==='patrol'||this.state==='idle_at_bldg'||this.state==='building'){
+      this.beginDemolition(restart);
+    } else {
+      restart();
+    }
+    updateCard(this.id);
+  }
+  beginDemolition(nextStep){
+    initAudio();
+    const ae=audioEls.scv_explo;
+    if(ae){const ex=new Audio(ae.src);ex.volume=0.55;ex.play().catch(()=>{});}
+    this.demolishTimer=.42;
+    this.demolishNext=nextStep||null;
+    this.setState('demolishing');
+    for(let i=0;i<14;i++)this.sparks.push({x:this.bx+(Math.random()-.5)*44,y:this.by-24+(Math.random()-.5)*30,vx:(Math.random()-.5)*120,vy:-40-Math.random()*80,life:.25+Math.random()*.25});
+  }
+  applyRunPhase(phase,progress,label){
+    if(!this.runId&&phase!=='done')return;
+    this.runStatus='running';
+    this.runPhase=phase||this.runPhase;
+    this.runLabel=label||this.runLabel;
+    this.progressMode='live';
+    if(typeof progress==='number'){
+      this.targetProgress=Math.max(this.targetProgress,Math.min(1,progress));
+    }
+    if((this.state==='idle'||this.state==='manual_idle')&&phase!=='done'&&this.demolishTimer<=0){
+      this.startBuild({force:true,progressMode:'live',targetProgress:this.targetProgress||0.08});
+    }
+    updateCard(this.id);
+  }
+  appendRunLog(text){
+    if(!text)return;
+    this.runLogs.push(text);
+    if(this.runLogs.length>80)this.runLogs=this.runLogs.slice(-80);
+    this.runSummary=this.runLogs.slice(-8).join('\n\n');
+    syncDrawer();
+  }
+  finishRun(status,run){
+    this.runStatus=status;
+    this.runPhase=status==='done'?'done':status;
+    this.runLabel=status==='done'?'작업 완료':status==='failed'?'실패':'취소됨';
+    this.runSummary=run.summary||this.runSummary;
+    this.filesChanged=run.filesChanged||this.filesChanged;
+    this.errorText=run.errorText||this.errorText;
+    if(status==='done'){
+      this.targetProgress=1;
+      this.progressMode='live';
+      if(this.state==='idle'||this.state==='manual_idle')this.startBuild({force:true,progressMode:'live',targetProgress:1});
+    } else {
+      stopWeld(this.id);
+      this.progressMode='auto';
+      this.mcb=null;
+      if(this.state==='building'||this.state==='move_to_build'||this.state==='demolishing')this.state='idle_at_bldg';
+    }
+    updateCard(this.id);
+    syncDrawer();
+  }
+  // SC1 right-click move command
+  commandMove(wx,wy){
+    // Building state SCV cannot be moved
+    if(this.state==='building'||this.state==='demolishing')return false;
+    // Save previous state for autonomous resume
+    if(this.state!=='manual_move'&&this.state!=='manual_idle'){
+      this.prevAutoState=this.state;
+    }
+    this.manualTimer=0;
+    this.setState('manual_move');
+    this.moveTo(wx,wy,()=>{
+      this.setState('manual_idle');
+      this.manualTimer=MANUAL_IDLE_TIME;
+    });
+    return true;
+  }
+  resumeAutonomous(){
+    const prev=this.prevAutoState||'idle';
+    this.prevAutoState=null;this.manualTimer=0;
+    if(prev==='patrol'||prev==='idle_at_bldg'||prev==='complete'){
+      this.startPatrol();
+    } else if(prev==='move_to_build'){
+      this.moveTo(this.bx-35,this.by+15,()=>this.setState('building'));
+      this.setState('move_to_build');
+    } else {
+      this.setState('idle');
+    }
+  }
+  moveTo(x,y,cb){this.tx=x;this.ty=y;this.mcb=cb;}
+  doMove(d){
+    const dx=this.tx-this.x,dy=this.ty-this.y,dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<2){
+      this.x=this.tx;this.y=this.ty;
+      this.spd=Math.max(0,this.spd-SCV_ACCEL*d*2);
+      if(this.mcb){const c=this.mcb;this.mcb=null;c();}
+      return false;
+    }
+    const deg=((Math.atan2(dy,dx)*180/Math.PI)+360)%360;
+    this.tDir=Math.round(deg/22.5)%16;
+    const maxSpd=this.state==='patrol'?PATROL_SPEED:MOVE_SPEED;
+    if(dist<SCV_DECEL_DIST){
+      const target=Math.max(0.2,dist/SCV_DECEL_DIST);
+      this.spd=Math.max(target,this.spd-SCV_ACCEL*d*1.5);
+    } else {
+      this.spd=Math.min(1,this.spd+SCV_ACCEL*d);
+    }
+    const sp=maxSpd*this.spd*d;
+    this.x+=dx/dist*sp;this.y+=dy/dist*sp;
+    this._moving=true;
+    return true;
+  }
+  startPatrol(){this.pc={x:this.bx,y:this.by};this.setState('patrol');this.pickPP();}
+  pickPP(){
+    const a=Math.random()*6.283,r=20+Math.random()*55;
+    this.moveTo(this.pc.x+Math.cos(a)*r,this.pc.y+Math.sin(a)*r+15,()=>{this.ipw=true;this.pw=1.5+Math.random()*3;});
+  }
+  update(d){
+    this._moving=false;
+    if(this.flashAlpha>0){this.flashAlpha-=d*1.2;this.flashScale+=d*2.5;}
+    this.sparks=this.sparks.filter(s=>{s.life-=d;s.x+=s.vx*d;s.y+=s.vy*d;s.vy+=120*d;return s.life>0;});
+    switch(this.state){
+      case'idle':this.it+=d;if(this.it>2+Math.random()*3){this.it=0;this.moveTo(this.hx+(Math.random()-.5)*50,this.hy+(Math.random()-.5)*30,null);}this.doMove(d);break;
+      case'move_to_build':this.doMove(d);break;
+      case'building':
+        if(this.progressMode==='live'){
+          const liveRate=this.targetProgress>=1?.95:.55;
+          this.progress=Math.min(this.targetProgress,this.progress+liveRate*d);
+          if(this.runStatus==='done'&&this.progress>=.999){this.progress=1;this.setState('complete');break;}
+        } else {
+          this.progress+=BUILD_SPEED*d;
+          if(this.progress>=1){this.progress=1;this.setState('complete');break;}
+        }
+        if(this.fr%3===0){const vd=Math.round(this.vDir)%16;for(let i=0;i<2;i++)this.sparks.push({x:this.x+((vd>=5&&vd<=11)?-34:34),y:this.y-2+Math.sin(this.fr*.6)*5,vx:(Math.random()-.5)*60,vy:-30-Math.random()*50,life:.15+Math.random()*.25});}
+        break;
+      case'demolishing':
+        this.demolishTimer-=d;
+        if(this.fr%2===0){
+          for(let i=0;i<3;i++)this.sparks.push({x:this.bx+(Math.random()-.5)*48,y:this.by-24+(Math.random()-.5)*24,vx:(Math.random()-.5)*90,vy:-20-Math.random()*70,life:.1+Math.random()*.2});
+        }
+        if(this.demolishTimer<=0){
+          this.progress=0;
+          const next=this.demolishNext;
+          this.demolishNext=null;
+          this.setState('idle');
+          if(next)next();
+        }
+        break;
+      case'complete':break;
+      case'patrol':
+        if(this.ipw){this.pw-=d;if(this.pw<=0){this.ipw=false;if(Math.random()<.2){this.setState('idle_at_bldg');break;}this.pickPP();}}
+        else{const m=this.doMove(d);if(!m&&!this.mcb){this.ipw=true;this.pw=1+Math.random()*3;}}
+        break;
+      case'idle_at_bldg':this.it+=d;if(this.it>4+Math.random()*4){this.it=0;if(Math.random()<.6)this.startPatrol();}break;
+      // Manual command states
+      case'manual_move':this.doMove(d);break;
+      case'manual_idle':
+        this.manualTimer-=d;
+        if(this.manualTimer<=0)this.resumeAutonomous();
+        break;
+    }
+    // Smooth direction interpolation
+    if(this._moving){
+      let diff=this.tDir-this.vDir;
+      if(diff>8)diff-=16; if(diff<-8)diff+=16;
+      if(Math.abs(diff)>0.1){
+        const step=Math.sign(diff)*Math.min(Math.abs(diff),SCV_TURN_RATE*d);
+        this.vDir=((this.vDir+step)%16+16)%16;
+      } else {
+        this.vDir=this.tDir;
+      }
+    }
+    this.ft+=d;
+    if(this.ft>.13){
+      this.ft-=.13;
+      if(this._moving||this.state==='building')this.fr++;
+    }
+  }
+  draw(){
+    const sx=this.bx-cam.x,sy=this.by-cam.y;
+    // Building selection circle (SC1 bright green, near-circular)
+    if(this.selected&&(this.progress>0||this.state==='demolishing')){
+      const stageIdx=Math.min(5,Math.floor(Math.max(this.progress,.08)*6));
+      const bs=BARR_STAGES[stageIdx];
+      const bw=bs.w*1.2;
+      const br=Math.max(bw/2+4,40);
+      ctx.save();
+      ctx.strokeStyle='#00ff00';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.ellipse(sx,sy-30,br,br*0.75,0,0,6.283);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Building sprite
+    const visibleProgress=this.state==='demolishing'?Math.max(this.progress,.12)*Math.max(0,this.demolishTimer/.42):this.progress;
+    if(visibleProgress>0){
+      ctx.save();
+      if(this.state==='demolishing')ctx.globalAlpha=Math.max(.08,this.demolishTimer/.42);
+      drawBldg(sx,sy,this.bt,visibleProgress);
+      ctx.restore();
+      const ln=this.progress>=1&&this.runStatus!=='running'?'배럭스 ✓':'배럭스';
+      label(sx,sy-58,ln,this.progress>=1?'#40ff40':'#f0a030',9);
+    }
+    if(this.progress>0)drawPbar(sx-24,sy+14,48,this.progress,this.progress>=1&&this.runStatus!=='running');
+    if(this.flashAlpha>0){
+      ctx.save();ctx.globalAlpha=this.flashAlpha*.5;ctx.fillStyle='#4af0ff';
+      ctx.beginPath();ctx.arc(sx,sy,30*this.flashScale,0,6.283);ctx.fill();ctx.restore();
+    }
+    // SCV
+    const ux=this.x-cam.x,uy=this.y-cam.y;
+    // SC1 Selection circle — persistent bright green #00FF00, 1px width, near body base
+    if(this.selected){
+      ctx.save();
+      ctx.strokeStyle='#00ff00';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.ellipse(ux,uy-21,18,9,0,0,6.283);
+      ctx.stroke();
+      ctx.restore();
+    }
+    drawScvSprite(ux,uy,this.vDir,this.fr);
+    // Sparks
+    this.sparks.forEach(s=>{
+      ctx.fillStyle=`rgba(255,220,68,${Math.min(1,s.life*4)})`;
+      ctx.beginPath();ctx.arc(s.x-cam.x,s.y-cam.y,1.5,0,6.283);ctx.fill();
+    });
+    // Name + status
+    label(ux,uy-50,this.name,'#4a9eff',9);
+    const status=agentStatusMeta(this);
+    label(ux,uy+52,status.text,status.color,8);
+  }
+  select(){initAudio();play('select',.3);playV(SCV_VOICES[Math.random()*4|0]);}
+  hit(wx,wy){return Math.abs(wx-this.x-8)<28&&Math.abs(wy-this.y-8)<35;}
+  hitBldg(wx,wy){
+    if(this.progress<=0&&this.state!=='demolishing')return false;
+    const stageIdx=Math.min(5,Math.floor(Math.max(this.progress,.08)*6));
+    const s=BARR_STAGES[stageIdx];
+    const dw=s.w*1.2,dh=BARR_H*1.2;
+    return wx>=this.bx-dw/2&&wx<=this.bx+dw/2&&wy>=this.by-dh+14&&wy<=this.by+14;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SELECTION HELPERS
+// ═══════════════════════════════════════════════════════════════
+function clearSelection(){
+  selectedAgents.forEach(id=>{
+    const a=agents.find(a=>a.id===id);
+    if(a)a.selected=false;
+  });
+  selectedAgents.clear();
+}
+function selectAgent(a){
+  a.selected=true;
+  selectedAgents.add(a.id);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BUILD SLOTS
+// ═══════════════════════════════════════════════════════════════
+const slots=[];
+(function(){const sx=280,sy=180,cols=4,gx=200,gy=170;
+for(let r=0;r<3;r++)for(let c=0;c<cols;c++)slots.push({x:sx+c*gx+(r%2)*50,y:sy+r*gy,u:false});})();
+function nextSlot(){const s=slots.find(s=>!s.u);if(s){s.u=true;return s;}return{x:250+Math.random()*700,y:200+Math.random()*350,u:true};}
+
+// ═══════════════════════════════════════════════════════════════
+// MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+function spawnAgent(options){
+  const meta=typeof options==='string'?{name:options}:options||{};
+  initAudio();
+  const id=meta.id??nextId++;
+  if(typeof id==='number'&&id>=nextId)nextId=id+1;
+  const n=meta.name||`Agent-${String(id).padStart(2,'0')}`;
+  const sx=60+Math.random()*80,sy=620+Math.random()*60;
+  const sl=nextSlot();const bt='barracks';
+  const existing=findAgent(id);
+  if(existing){
+    existing.syncMeta(meta);
+    return existing.id;
+  }
+  const a=new Agent(id,n,sx,sy,sl.x,sl.y,bt,meta);agents.push(a);
+  addCard(a);updCnt();play('click',.3);playV('scv_ready');return id;
+}
+function startAllMock(){
+  initAudio();
+  agents.forEach((a,i)=>{
+    const prompt=document.getElementById('task-prompt').value.trim()||'Mock task';
+    setTimeout(()=>{
+      a.beginLiveRun({
+        id:`mock-${Date.now()}-${a.id}`,
+        prompt,
+        taskTitle:summarizePrompt(prompt),
+        progress:.08,
+        phase:'planning',
+      });
+      a.appendRunLog(`MOCK START: ${prompt}`);
+      let progress=.08;
+      const timer=setInterval(()=>{
+        progress=Math.min(1,progress+.12);
+        const phase=progress<.25?'planning':progress<.8?'coding':'summarizing';
+        a.applyRunPhase(phase,progress,phase==='coding'?'모의 코딩 중':'모의 작업 진행 중');
+        if(progress>=1){
+          clearInterval(timer);
+          a.finishRun('done',{summary:`${a.name} mock run finished.`,filesChanged:[]});
+        }
+      },500);
+    },i*350);
+  });
+}
+async function removeAgent(id){
+  initAudio();
+  const idx=agents.findIndex(a=>a.id===id);if(idx<0)return;
+  const a=agents[idx];
+  if(liveMode){
+    try{await liveAPI.removeAgent(String(id));}
+    catch(err){updateLiveStatus(`제거 실패: ${err.message}`);return;}
+  }
+  stopWeld(id);
+  selectedAgents.delete(id);
+  const ae=audioEls.scv_explo;
+  if(ae){const ex=new Audio(ae.src);ex.volume=0.7;ex.play().catch(()=>{});}
+  for(let i=0;i<18;i++)a.sparks.push({x:a.x,y:a.y,vx:(Math.random()-.5)*140,vy:-60-Math.random()*90,life:.5+Math.random()*.4});
+  setTimeout(()=>{
+    const removeIdx=agents.findIndex(ag=>ag.id===id);
+    if(removeIdx>=0)agents.splice(removeIdx,1);
+    const card=document.getElementById(`ac-${id}`);if(card)card.remove();
+    if(drawerAgentId&&String(drawerAgentId)===String(id))closeTaskDrawer();
+    updCnt();
+  },150);
+}
+async function resetAll(){
+  if(liveMode){
+    const ids=agents.map(a=>String(a.id));
+    for(const id of ids)await removeAgent(id);
+    return;
+  }
+  agents.forEach(a=>stopWeld(a.id));agents=[];nextId=1;slots.forEach(s=>s.u=false);
+  selectedAgents.clear();
+  document.getElementById('agent-list').innerHTML='';updCnt();closeTaskDrawer();
+}
+function ensureRemoteAgent(agent){
+  const local=findAgent(agent.id);
+  if(local){
+    local.syncMeta(agent);
+    return local;
+  }
+  spawnAgent(agent);
+  return findAgent(agent.id);
+}
+function applyRunToAgent(event){
+  const agent=findAgent(event.agentId||event.run?.agentId);
+  if(!agent)return;
+  if(event.type==='run.started'){
+    agent.beginLiveRun(event.run);
+    openTaskDrawer(agent.id);
+    return;
+  }
+  if(event.type==='run.phase'){
+    agent.applyRunPhase(event.phase,event.progress,event.label);
+    return;
+  }
+  if(event.type==='run.output'){
+    agent.applyRunPhase(event.phase,event.progress,agent.runLabel);
+    agent.appendRunLog(event.text);
+    return;
+  }
+  if(event.type==='run.completed'){
+    agent.finishRun('done',event.run);
+    return;
+  }
+  if(event.type==='run.failed'){
+    agent.errorText=event.errorText||'실패';
+    agent.appendRunLog(`ERROR: ${agent.errorText}`);
+    agent.finishRun('failed',event.run);
+    return;
+  }
+  if(event.type==='run.cancelled'){
+    agent.finishRun('cancelled',event.run);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI CARDS
+// ═══════════════════════════════════════════════════════════════
+function addCard(a){
+  const bt=BLDG_TYPES.find(b=>b.id===a.bt);const d=document.createElement('div');
+  d.className='agent-card';d.id=`ac-${a.id}`;
+  d.innerHTML=`<div class="card-top"><div class="aname">${a.name}</div><button class="abtn-remove" title="SCV 제거">✕</button></div><div class="astatus">대기</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">대기 중</div><div class="pbar"><div class="pfill"></div></div>`;
+  d.querySelector('.abtn-remove').onclick=(e)=>{e.stopPropagation();void removeAgent(a.id);};
+  d.onclick=()=>{
+    clearSelection();
+    selectAgent(a);
+    a.select();
+    openTaskDrawer(a.id);
+  };
+  document.getElementById('agent-list').appendChild(d);
+  updateCard(a.id);
+}
+function updateCard(id){
+  const a=agents.find(a=>a.id===id);if(!a)return;const c=document.getElementById(`ac-${id}`);if(!c)return;
+  const st=c.querySelector('.astatus'),fl=c.querySelector('.pfill');
+  const engineEl=c.querySelector('.aengine'),taskEl=c.querySelector('.atask');
+  c.className='agent-card'+(a.state==='building'?' building':'')+(a.progress>=1&&a.runStatus!=='running'?' done':'')+(a.runStatus==='failed'?' failed':'');
+  const status=agentStatusMeta(a);
+  st.textContent=status.text||'대기';
+  st.style.color=status.color;
+  engineEl.textContent=fmtEngine(a.engine||'mock',a.model||'demo');
+  taskEl.textContent=a.taskTitle||'대기 중';
+  fl.style.width=`${a.progress*100|0}%`;
+  fl.className='pfill'+(a.progress>=1&&a.runStatus!=='running'?' complete':'');
+  syncDrawer();
+}
+function updCnt(){document.getElementById('agent-count').textContent=`에이전트: ${agents.length}`;}
+
+async function startRunFromUI(){
+  const prompt=document.getElementById('task-prompt').value.trim();
+  if(!prompt){
+    updateLiveStatus('프롬프트를 입력하세요');
+    return;
+  }
+  if(!agents.length){
+    updateLiveStatus('에이전트를 먼저 추가하세요');
+    return;
+  }
+  if(!liveMode){
+    startAllMock();
+    updateLiveStatus('MOCK RUNNING');
+    return;
+  }
+  const selected=[...selectedAgents].map(id=>findAgent(id)).filter(Boolean);
+  const target=selected[0]||agents[0];
+  if(!target){
+    updateLiveStatus('시작할 에이전트가 없습니다');
+    return;
+  }
+  try{
+    updateLiveStatus(`${target.name} 실행 요청 중`);
+    await liveAPI.startRun({
+      agentId:String(target.id),
+      prompt,
+      taskTitle:summarizePrompt(prompt),
+    });
+  }catch(err){
+    updateLiveStatus(err.message||'실행 실패');
+    target.appendRunLog(`ERROR: ${err.message||'실행 실패'}`);
+    target.runStatus='failed';
+    updateCard(target.id);
+  }
+}
+
+function handleLiveEvent(event){
+  if(event.type==='agent.created'){
+    ensureRemoteAgent(event.agent);
+    updCnt();
+    return;
+  }
+  if(event.type==='agent.removed'){
+    return;
+  }
+  if(event.type.startsWith('run.')){
+    applyRunToAgent(event);
+    if(event.type==='run.started')updateLiveStatus(`LIVE MODE · ${event.agent.name} 실행 중`);
+    if(event.type==='run.completed')updateLiveStatus('LIVE MODE · 대기');
+    if(event.type==='run.failed')updateLiveStatus(`실패 · ${event.errorText||'run failed'}`);
+    if(event.type==='run.cancelled')updateLiveStatus('LIVE MODE · 취소됨');
+  }
+}
+
+async function bootstrapLiveMode(){
+  renderEngineList();
+  if(!liveMode){
+    document.getElementById('layer-copy').textContent='브라우저 모드에서는 mock 작업만 실행됩니다.';
+    updateLiveStatus('MOCK DEMO');
+    if(!bootstrapped){
+      bootstrapped=true;
+      setTimeout(()=>{spawnAgent({name:'Scout-01',engine:'mock',model:'demo'});setTimeout(()=>spawnAgent({name:'Miner-02',engine:'mock',model:'demo'}),200);setTimeout(()=>spawnAgent({name:'Builder-03',engine:'mock',model:'demo'}),400);},300);
+    }
+    return;
+  }
+  const state=await liveAPI.getState();
+  liveConstraint=state.parallelMode||'single-live-run';
+  (state.engines||[]).forEach((engine)=>engineStatuses.set(engine.id,engine));
+  renderEngineList();
+  document.getElementById('layer-copy').textContent='LIVE MODE: 1단계 구현에서는 in-place 단일 실행만 허용됩니다. worktree 병렬화는 다음 단계입니다.';
+  updateLiveStatus('LIVE MODE · 대기');
+  document.getElementById('btn-start').textContent='▶ 선택/첫 에이전트 시작';
+  state.agents.forEach((agent)=>ensureRemoteAgent(agent));
+  updCnt();
+  liveAPI.onEvent(handleLiveEvent);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INPUT — SC1 style: left-drag select, right-click move
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{keys[e.code]=true;});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+canvas.addEventListener('mouseenter',()=>{cursorOnCanvas=true;});
+canvas.addEventListener('mouseleave',()=>{cursorOnCanvas=false;});
+
+canvas.addEventListener('mousedown',e=>{
+  mouse.down=true;mouse.px=e.clientX;mouse.py=e.clientY;mouse.button=e.button;
+  if(e.button===0){
+    const sx=e.clientX;
+    const sy=e.clientY-44;
+    dragBox={sx,sy,ex:sx,ey:sy,started:false};
+  }
+});
+
+canvas.addEventListener('mousemove',e=>{
+  mouseScreenX=e.clientX;
+  mouseScreenY=e.clientY-44;
+  if(mouse.down&&mouse.button===0&&dragBox){
+    dragBox.ex=e.clientX;
+    dragBox.ey=e.clientY-44;
+    const dx=dragBox.ex-dragBox.sx;
+    const dy=dragBox.ey-dragBox.sy;
+    if(Math.abs(dx)>4||Math.abs(dy)>4)dragBox.started=true;
+  }
+  // Middle mouse camera pan
+  if(mouse.down&&e.buttons===4){
+    cam.x-=e.clientX-mouse.px;
+    cam.y-=e.clientY-mouse.py;
+  }
+  mouse.px=e.clientX;mouse.py=e.clientY;
+});
+
+canvas.addEventListener('mouseup',e=>{
+  if(e.button===0&&dragBox){
+    if(dragBox.started){
+      // Drag selection complete
+      const x1=Math.min(dragBox.sx,dragBox.ex)+cam.x;
+      const y1=Math.min(dragBox.sy,dragBox.ey)+cam.y;
+      const x2=Math.max(dragBox.sx,dragBox.ex)+cam.x;
+      const y2=Math.max(dragBox.sy,dragBox.ey)+cam.y;
+      clearSelection();
+      agents.forEach(a=>{
+        if(a.x>=x1&&a.x<=x2&&a.y>=y1&&a.y<=y2)selectAgent(a);
+      });
+      if(selectedAgents.size>0){
+        initAudio();play('select',.3);
+        const first=agents.find(a=>a.selected);
+        if(first)playV(SCV_VOICES[Math.random()*4|0]);
+      }
+    } else {
+      // Single left click
+      const wx=dragBox.sx+cam.x;
+      const wy=dragBox.sy+cam.y;
+      const hitAgent=agents.find(a=>a.hit(wx,wy));
+      const hitBldgAgent=!hitAgent?agents.find(a=>a.hitBldg(wx,wy)):null;
+      clearSelection();
+      if(hitAgent){
+        selectAgent(hitAgent);
+        hitAgent.select();
+        openTaskDrawer(hitAgent.id);
+      } else if(hitBldgAgent){
+        selectAgent(hitBldgAgent);
+        hitBldgAgent.select();
+        openTaskDrawer(hitBldgAgent.id);
+      }
+    }
+    dragBox=null;
+  }
+  if(e.button===2){
+    // Right click — SC1 move command
+    const wx=e.clientX+cam.x;
+    const wy=e.clientY-44+cam.y;
+    let movedAny=false;
+    selectedAgents.forEach(id=>{
+      const a=agents.find(a=>a.id===id);
+      if(a&&a.commandMove(wx,wy))movedAny=true;
+    });
+    if(movedAny){
+      initAudio();
+      playV(SCV_VOICES[Math.random()*4|0]);
+      moveMarkers.push({x:wx,y:wy,t:0,cycle:MARKER_CYCLES[Math.random()*MARKER_CYCLES.length|0]});
+    }
+  }
+  mouse.down=false;mouse.button=-1;
+});
+
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+document.getElementById('btn-spawn').onclick=async ()=>{
+  const engine=document.getElementById('agent-engine').value;
+  if(!liveMode){
+    spawnAgent({engine,model:engine==='claude'?'demo-opus':'demo'});
+    return;
+  }
+  const seedId=nextId;
+  const payload={id:seedId,name:`Agent-${String(seedId).padStart(2,'0')}`,engine,model:engine==='claude'?'default':'gpt-5'};
+  try{
+    const agent=await liveAPI.createAgent(payload);
+    ensureRemoteAgent(agent);
+    updCnt();
+  }catch(err){
+    updateLiveStatus(`생성 실패: ${err.message}`);
+  }
+};
+document.getElementById('btn-start').onclick=()=>{void startRunFromUI();};
+document.getElementById('btn-reset').onclick=()=>{void resetAll();};
+document.getElementById('btn-music').onclick=()=>{initAudio();toggleMusic();};
+document.getElementById('drawer-close').onclick=closeTaskDrawer;
+
+// ═══════════════════════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════════════════════
+function drawMini(){
+  const mc=miniCtx,mw=160,mh=100,sx=mw/WORLD_W,sy=mh/WORLD_H;
+  if(mapImg&&mapImg.complete&&mapImg.naturalWidth){
+    const sc2=Math.max(mw/MAP_IMG_W,mh/MAP_IMG_H);
+    const iw=MAP_IMG_W*sc2,ih=MAP_IMG_H*sc2;
+    mc.drawImage(mapImg,(mw-iw)/2,(mh-ih)/2,iw,ih);
+  } else {
+    mc.fillStyle='#243318';mc.fillRect(0,0,mw,mh);
+  }
+  agents.forEach(a=>{mc.fillStyle=a.progress>=1?'#30d060':'#f0a030';mc.fillRect(a.bx*sx-2,a.by*sy-2,4,3);});
+  agents.forEach(a=>{mc.fillStyle='#4a9eff';mc.fillRect(a.x*sx-1,a.y*sy-1,2,2);});
+  mc.strokeStyle='rgba(255,255,255,.3)';mc.lineWidth=1;mc.strokeRect(cam.x*sx,cam.y*sy,W*sx,H*sy);
+  mc.strokeStyle='#1a3a6a';mc.strokeRect(0,0,mw,mh);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════════════════════════
+let ff=0,ft2=0,fd=0;
+function stepWorld(delta){
+  dt=delta;time+=dt;
+  ff++;ft2+=dt;if(ft2>=1){fd=ff;ff=0;ft2-=1;document.getElementById('fps-counter').textContent=`${fd} FPS | ${agents.length} agents`;}
+  // Camera
+  const cs=250*dt;
+  if(keys['ArrowLeft']||keys['KeyA'])cam.x-=cs;if(keys['ArrowRight']||keys['KeyD'])cam.x+=cs;
+  if(keys['ArrowUp']||keys['KeyW'])cam.y-=cs;if(keys['ArrowDown']||keys['KeyS'])cam.y+=cs;
+  cam.x=Math.max(0,Math.min(WORLD_W-W,cam.x));cam.y=Math.max(0,Math.min(WORLD_H-H,cam.y));
+  // Update
+  agents.forEach(a=>a.update(dt));
+  // SCV collision repulsion — agents push each other apart like physical bodies
+  for(let i=0;i<agents.length;i++){
+    for(let j=i+1;j<agents.length;j++){
+      const a=agents[i],b=agents[j];
+      const dx=b.x-a.x,dy=b.y-a.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      const minDist=32;
+      if(dist<minDist&&dist>0.1){
+        const nx=dx/dist,ny=dy/dist;
+        const push=(minDist-dist)*0.5+150*dt*((minDist-dist)/minDist);
+        if(a.state!=='building'){a.x-=nx*push;a.y-=ny*push;}
+        if(b.state!=='building'){b.x+=nx*push;b.y+=ny*push;}
+      }
+    }
+  }
+  if((time*2|0)!==((time-dt)*2|0))agents.forEach(a=>updateCard(a.id));
+}
+function renderWorld(){
+  // Render
+  ctx.clearRect(0,0,W,H);
+  if(mapImg&&mapImg.complete&&mapImg.naturalWidth){
+    // Cover: fill viewport, maintain aspect ratio
+    const sc=Math.max(W/MAP_IMG_W,H/MAP_IMG_H);
+    const mw=MAP_IMG_W*sc,mh=MAP_IMG_H*sc;
+    ctx.drawImage(mapImg,(W-mw)/2,(H-mh)/2,mw,mh);
+  } else {
+    if(!terrainImg)genTerrain();
+    ctx.drawImage(terrainImg,-cam.x,-cam.y);
+  }
+  // Water ripple animation
+  drawWaterRipple();
+  // Vespene gas animation overlay
+  drawVespeneGas();
+  // Unused build slot indicators
+  slots.filter(s=>!s.u).forEach(s=>{
+    const sx2=s.x-cam.x,sy2=s.y-cam.y;
+    ctx.strokeStyle='rgba(64,255,64,.08)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.strokeRect(sx2-40,sy2-30,80,60);ctx.setLineDash([]);
+  });
+  // Agents sorted by Y
+  [...agents].sort((a,b)=>a.y-b.y).forEach(a=>a.draw());
+  // SC1 move markers
+  updateAndDrawMoveMarkers(dt);
+  // SC1 drag selection box
+  drawDragBox();
+  // Top bar gradient overlay
+  ctx.fillStyle='rgba(10,10,26,.85)';ctx.fillRect(0,0,W,2);
+  drawMini();
+  // SC1 custom cursor (drawn last, on top)
+  if(cursorOnCanvas)drawSC1Cursor(mouseScreenX,mouseScreenY);
+}
+function loop(ts){
+  requestAnimationFrame(loop);
+  if(!lastT)lastT=ts;
+  const frameDt=Math.min((ts-lastT)/1000,.05);
+  lastT=ts;
+  stepWorld(frameDt);
+  renderWorld();
+}
+
+function renderGameToText(){
+  const payload={
+    mode:liveMode?'live':'mock',
+    note:'origin top-left, +x right, +y down',
+    selected:[...selectedAgents],
+    agents:agents.map(a=>({
+      id:a.id,
+      name:a.name,
+      engine:a.engine,
+      state:a.state,
+      runStatus:a.runStatus,
+      runPhase:a.runPhase,
+      progress:Number(a.progress.toFixed(3)),
+      targetProgress:Number(a.targetProgress.toFixed(3)),
+      x:Number(a.x.toFixed(1)),
+      y:Number(a.y.toFixed(1)),
+      bx:Number(a.bx.toFixed(1)),
+      by:Number(a.by.toFixed(1)),
+      taskTitle:a.taskTitle,
+    })),
+    drawerAgentId,
+  };
+  return JSON.stringify(payload);
+}
+window.render_game_to_text=renderGameToText;
+window.advanceTime=(ms)=>{
+  let remaining=Math.max(0,ms)/1000;
+  while(remaining>0){
+    const step=Math.min(1/60,remaining);
+    stepWorld(step);
+    remaining-=step;
+  }
+  renderWorld();
+};
+
+// ─── BOOT ────────────────────────────────────────────────────
+genTerrain();
+loadScvSprite();
+requestAnimationFrame(loop);
+bootstrapLiveMode().catch(err=>{
+  document.getElementById('layer-copy').textContent=`부트 실패: ${err.message}`;
+  updateLiveStatus('BOOT FAILED');
+});
+</script>
+</body>
+</html>

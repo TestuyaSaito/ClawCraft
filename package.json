@@ -1,0 +1,13 @@
+{
+  "name": "scv-agent-animation",
+  "version": "1.0.0",
+  "description": "StarCraft SCV Agent Animation - Electron + Canvas/WebAudio prototype",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "browser": "open src/index.html || xdg-open src/index.html || start src/index.html"
+  },
+  "devDependencies": {
+    "electron": "^41.0.2"
+  }
+}
