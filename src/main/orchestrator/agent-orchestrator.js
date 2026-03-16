@@ -10,6 +10,7 @@ const { MessageBus } = require('./message-bus');
 const { PromptCompiler } = require('./prompt-compiler');
 const { ConversationRouter } = require('./conversation-router');
 const { TaskPlanner } = require('./task-planner');
+const { parseActions, hasActions, extractPlainText } = require('./action-parser');
 const { CodexAdapter } = require('../engines/codex-adapter');
 const { ClaudeAdapter } = require('../engines/claude-adapter');
 const { GeminiAdapter } = require('../engines/gemini-adapter');
@@ -221,7 +222,29 @@ class AgentOrchestrator extends EventEmitter {
     await Promise.allSettled(builderPromises);
     this.emitEvent({ type: 'collab.builders_done', plan });
 
-    // Step 3: Leader summarizes
+    // Step 3: Leader reviews all builder results
+    plan.status = 'reviewing';
+    this.messageBus.send({ from: leader.id, fromName: leader.displayName || leader.name, to: 'all', channel: 'radio', kind: 'system', text: 'Reviewing all builder results...' });
+
+    // Leader reviews each completed subtask
+    const reviewPrompt = this._buildReviewPrompt(plan);
+    try {
+      const reviewRun = await this.startRun({ agentId: String(leader.id), prompt: reviewPrompt, taskTitle: 'Reviewing builder results', mode: 'shared-brief' });
+      await new Promise((resolve) => {
+        const handler = (event) => {
+          const eid = event.run?.id || event.runId;
+          if (eid !== reviewRun.id) return;
+          if (event.type === 'run.completed' || event.type === 'run.failed' || event.type === 'run.cancelled') {
+            this.removeListener('event', handler); resolve();
+          }
+        };
+        this.on('event', handler);
+      });
+      // Mark subtasks as reviewed
+      plan.subtasks.forEach(st => { if (st.status === 'done') st.reviewStatus = 'approved'; });
+    } catch {}
+
+    // Step 4: Leader summarizes
     plan.status = 'reporting';
     const reportPrompt = this.planner.buildReportPrompt(plan);
     try {
@@ -480,16 +503,23 @@ class AgentOrchestrator extends EventEmitter {
       run.progress = Math.max(run.progress, run.phase === 'coding' ? 0.22 : run.progress);
       const prevSummary = run.summary ? `${run.summary}\n\n${event.text}` : event.text;
       this.runStore.setSummary(runId, prevSummary.trim().slice(-6000));
-      // Record to shared conversation log (skip code-heavy messages)
-      const clean = (event.text || '').replace(/```[\s\S]*?```/g, '').trim();
-      if (clean.length > 10 && clean.length < 500) {
+      // Parse ACTION blocks from output
+      const actions = parseActions(event.text || '');
+      if (actions.length > 0) {
+        for (const action of actions) {
+          this.handleAction(run, action);
+        }
+      }
+      // Record plain text (non-action) to shared conversation log
+      const plain = extractPlainText(event.text || '').replace(/```[\s\S]*?```/g, '').trim();
+      if (plain.length > 10 && plain.length < 500) {
         this.messageBus.send({
           from: run.agentId,
           fromName: run.agentName,
           to: 'all',
           channel: 'radio',
           kind: 'chat',
-          text: clean.slice(0, 300),
+          text: plain.slice(0, 300),
           relatedRunId: run.id,
         });
       }
@@ -634,6 +664,99 @@ class AgentOrchestrator extends EventEmitter {
 
   // 5단계: get git diff for an agent's worktree
   // Build context pack for a target agent (their recent work)
+  // Handle structured ACTION blocks from LLM output
+  _buildReviewPrompt(plan) {
+    let p = `You are the LEADER reviewing your team's work.\n\n## Original request\n${plan.userPrompt}\n\n## Builder results\n`;
+    plan.subtasks.forEach(st => {
+      p += `### ${st.assigneeName} (${st.status})\n`;
+      p += `Task: ${st.description}\n`;
+      p += `Files: ${st.targetFiles?.join(', ') || 'unknown'}\n`;
+      p += `Summary: ${st.summary || '(none)'}\n\n`;
+    });
+    p += `## Instructions\n- Check each builder's work for completeness\n- Note any issues\n- Use ACTION:review-result for each builder\n- End with ACTION:report\n`;
+    return p;
+  }
+
+  handleAction(run, action) {
+    const agent = this.registry.get(run.agentId);
+    const fromName = agent?.displayName || agent?.name || run.agentName;
+
+    switch (action.type) {
+      case 'delegate': {
+        const target = this.registry.resolveByMention(action.target || '');
+        this.messageBus.send({
+          from: run.agentId, fromName, to: target?.id || 'all',
+          channel: 'radio', kind: 'delegate',
+          text: `@${action.target} ${action.task || ''}`,
+          relatedRunId: run.id,
+        });
+        this.emitEvent({ type: 'action.delegate', agentId: run.agentId, target: action.target, task: action.task });
+        // Auto-start delegated task on target if idle
+        if (target && target.status === 'idle' && action.task) {
+          this.startRun({ agentId: String(target.id), prompt: action.task, taskTitle: action.task.slice(0, 50), mode: 'shared-brief' }).catch(() => {});
+        }
+        break;
+      }
+      case 'report': {
+        this.messageBus.send({
+          from: run.agentId, fromName, to: 'all',
+          channel: 'radio', kind: 'report',
+          text: `[${action.status || 'done'}] ${action.summary || ''}`,
+          relatedRunId: run.id,
+        });
+        this.emitEvent({ type: 'action.report', agentId: run.agentId, status: action.status, summary: action.summary });
+        break;
+      }
+      case 'blocker': {
+        this.messageBus.send({
+          from: run.agentId, fromName, to: 'all',
+          channel: 'radio', kind: 'blocker',
+          text: `⚠ BLOCKED: ${action.issue || ''} — Need: ${action.need || ''}`,
+          relatedRunId: run.id,
+        });
+        this.emitEvent({ type: 'action.blocker', agentId: run.agentId, issue: action.issue, need: action.need });
+        break;
+      }
+      case 'request-review': {
+        const reviewer = this.registry.resolveByMention(action.target || '');
+        this.messageBus.send({
+          from: run.agentId, fromName, to: reviewer?.id || 'all',
+          channel: 'radio', kind: 'request-review',
+          text: `Review requested: ${action.files || 'changes'} @${action.target || 'reviewer'}`,
+          relatedRunId: run.id,
+        });
+        this.emitEvent({ type: 'action.request-review', agentId: run.agentId, target: action.target, files: action.files });
+        // Auto-start review if reviewer is idle
+        if (reviewer && reviewer.status === 'idle') {
+          const diffCtx = this.getAgentContextPack(run.agentId);
+          this.startRun({ agentId: String(reviewer.id), prompt: `Review these changes:\n${diffCtx}\n\nFiles: ${action.files || 'all'}`, taskTitle: `Review for ${fromName}`, mode: 'shared-brief' }).catch(() => {});
+        }
+        break;
+      }
+      case 'review-result': {
+        this.messageBus.send({
+          from: run.agentId, fromName, to: 'all',
+          channel: 'radio', kind: 'review-result',
+          text: `Review: ${action.verdict || 'done'} — ${action.notes || ''}`,
+          relatedRunId: run.id,
+        });
+        this.emitEvent({ type: 'action.review-result', agentId: run.agentId, verdict: action.verdict, notes: action.notes });
+        break;
+      }
+      case 'handoff': {
+        const next = this.registry.resolveByMention(action.target || '');
+        this.messageBus.send({
+          from: run.agentId, fromName, to: next?.id || 'all',
+          channel: 'radio', kind: 'handoff',
+          text: `Handoff to @${action.target}: ${action.context || ''}`,
+          relatedRunId: run.id,
+        });
+        this.emitEvent({ type: 'action.handoff', agentId: run.agentId, target: action.target, context: action.context });
+        break;
+      }
+    }
+  }
+
   getAgentContextPack(agentId) {
     const agent = this.registry.get(agentId);
     if (!agent) return '';

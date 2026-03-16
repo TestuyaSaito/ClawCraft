@@ -26,9 +26,12 @@ class TaskPlanner {
         id: `subtask_${i}`,
         assignee: b.id,
         assigneeName: b.displayName || b.name,
-        description: '', // filled by leader's planning run
-        status: 'waiting', // waiting → running → done → reported
+        description: '',
+        targetFiles: [],
+        status: 'waiting', // waiting → running → done → reviewed → integrated
+        reviewStatus: 'pending', // pending → reviewing → approved → rejected
         summary: '',
+        reviewNotes: '',
       });
     });
     this.activePlan = plan;
@@ -38,13 +41,15 @@ class TaskPlanner {
   // Parse leader's decomposition output into subtasks
   parseLeaderOutput(text, plan) {
     // Try to find JSON task list in output
-    const jsonMatch = text.match(/\[[\s\S]*?\]/);
+    // Match outermost JSON array (greedy to handle nested arrays)
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       try {
         const tasks = JSON.parse(jsonMatch[0]);
         tasks.forEach((t, i) => {
           if (plan.subtasks[i]) {
             plan.subtasks[i].description = t.task || t.description || t;
+            if (t.files) plan.subtasks[i].targetFiles = Array.isArray(t.files) ? t.files : [t.files];
           }
         });
         return plan.subtasks;
@@ -83,9 +88,10 @@ ${userPrompt}
 ## Instructions
 - Decompose this into ${builderNames.length} parallel subtasks, one per builder
 - Each subtask should be independent (no dependencies between them)
-- Output a JSON array of objects with "task" field:
-[{"task": "subtask description for builder 1"}, {"task": "subtask description for builder 2"}]
+- Output a JSON array with "task" and "files" fields:
+[{"task": "subtask description", "files": ["file1.js"]}, {"task": "subtask 2", "files": ["file2.js"]}]
 - Be specific about what each builder should do
+- Assign different files to different builders (no overlap)
 - Keep subtasks roughly equal in size`;
   }
 

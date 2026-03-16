@@ -74,11 +74,22 @@ class PromptCompiler {
       ctx += this._lastPerception;
     }
 
-    // Instructions
-    ctx += `## Communication rules\n`;
-    ctx += `- Your messages are shared with teammates via the radio channel.\n`;
-    ctx += `- Mention teammates by name when coordinating.\n`;
-    ctx += `- Report completion, failures, or blockers.\n\n`;
+    // Instructions — structured collaboration protocol
+    ctx += `## Collaboration Protocol\n`;
+    ctx += `When you need to communicate with teammates, include ACTION blocks in your output.\n`;
+    ctx += `Each ACTION block must be on its own line in this exact format:\n\n`;
+    ctx += `ACTION:delegate target="teammate name" task="what to do"\n`;
+    ctx += `ACTION:report status="done|failed|blocked" summary="what happened"\n`;
+    ctx += `ACTION:blocker issue="what's blocking" need="what help is needed"\n`;
+    ctx += `ACTION:request-review target="reviewer name" files="file1.js,file2.js"\n`;
+    ctx += `ACTION:review-result verdict="approve|reject|revise" notes="feedback"\n`;
+    ctx += `ACTION:handoff target="next owner" context="what they need to know"\n\n`;
+    ctx += `Rules:\n`;
+    ctx += `- Always end your work with ACTION:report\n`;
+    ctx += `- If you're stuck, use ACTION:blocker immediately\n`;
+    ctx += `- If you need another teammate's help, use ACTION:delegate\n`;
+    ctx += `- Do your coding work first, then add ACTION blocks at the end\n`;
+    ctx += `- You can include multiple ACTION blocks\n\n`;
 
     ctx += `---\n\n## Current objective\n${taskPrompt}`;
     return ctx;
