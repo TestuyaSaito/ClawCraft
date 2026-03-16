@@ -1250,7 +1250,16 @@ function spawnAgent(options){
     existing.syncMeta(meta);
     return existing.id;
   }
-  const a=new Agent(id,n,sx,sy,sl.x,sl.y,bt,meta);agents.push(a);
+  const a=new Agent(id,n,sx,sy,sl.x,sl.y,bt,meta);
+  // Restore saved state
+  if(meta._progress!==undefined)a.progress=meta._progress;
+  if(meta._state&&meta._state!=='manual_move')a.state=meta._state;
+  if(meta._runStatus)a.runStatus=meta._runStatus;
+  if(meta._taskTitle)a.taskTitle=meta._taskTitle;
+  if(meta._vDir!==undefined)a.vDir=meta._vDir;
+  if(meta._mx)a.mx=meta._mx;
+  if(meta._my)a.my=meta._my;
+  agents.push(a);
   addCard(a);updCnt();
   if(!meta.silent){play('click',.3);playV('scv_ready');}
   return id;
@@ -1672,6 +1681,11 @@ function saveRendererState(){
     _bx:Math.round(a.bx),_by:Math.round(a.by),
     _mx:Math.round(a.mx||0),_my:Math.round(a.my||0),
     nickname:a.nickname||'',displayName:a.displayName||'',
+    _progress:Number(a.progress.toFixed(3)),
+    _state:a.state,
+    _runStatus:a.runStatus||'idle',
+    _taskTitle:a.taskTitle||'',
+    _vDir:Math.round(a.vDir||0),
   }));
   liveAPI.saveRendererState(state).catch(()=>{});
 }

@@ -361,6 +361,11 @@ async function bootstrapLiveMode(){
       agent._sx=saved._sx;agent._sy=saved._sy;
       agent._bx=saved._bx;agent._by=saved._by;
       agent._mx=saved._mx;agent._my=saved._my;
+      if(saved._progress!==undefined)agent._progress=saved._progress;
+      if(saved._state)agent._state=saved._state;
+      if(saved._runStatus)agent._runStatus=saved._runStatus;
+      if(saved._taskTitle)agent._taskTitle=saved._taskTitle;
+      if(saved._vDir!==undefined)agent._vDir=saved._vDir;
       if(saved.nickname)agent.nickname=saved.nickname;
       if(saved.displayName)agent.displayName=saved.displayName;
     }
