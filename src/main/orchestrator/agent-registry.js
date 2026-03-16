@@ -16,8 +16,22 @@ class AgentRegistry {
       Object.assign(existing, this._patch(payload));
       return existing;
     }
-    const name = payload.name || `Agent-${id}`;
-    const callSign = payload.callSign || name.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-|-$/g, '');
+    // Ensure unique name
+    let name = payload.name || `Agent-${id}`;
+    const baseName = name;
+    let nameIdx = 1;
+    while ([...this.agents.values()].some(a => a.name === name)) {
+      nameIdx++;
+      name = `${baseName}-${String(nameIdx).padStart(2, '0')}`;
+    }
+    // Ensure unique callSign
+    let callSign = payload.callSign || name.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-|-$/g, '');
+    const baseCall = callSign;
+    let callIdx = 1;
+    while ([...this.agents.values()].some(a => a.callSign === callSign)) {
+      callIdx++;
+      callSign = `${baseCall}-${callIdx}`;
+    }
     const record = {
       id,
       sessionId: payload.sessionId || id,
@@ -26,7 +40,7 @@ class AgentRegistry {
       callSign,
       aliases: payload.aliases || [name, callSign, `@${callSign}`, `@${name}`],
       engine: payload.engine || 'codex',
-      model: payload.model || 'gpt-5',
+      model: payload.model || 'gpt-5.4',
       role: payload.role || 'builder',
       teamId: payload.teamId || DEFAULT_TEAM,
       relation: 'teammate',
