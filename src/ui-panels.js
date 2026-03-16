@@ -4,39 +4,63 @@
 
 function syncDrawer(){
   if(!drawerAgentId){
-    document.getElementById('drawer-title').textContent='작업 상세';
+    document.getElementById('drawer-title').textContent='Task Detail';
     document.getElementById('drawer-engine').textContent='-';
     document.getElementById('drawer-phase').textContent='-';
     document.getElementById('drawer-task').textContent='-';
     document.getElementById('drawer-workspace').textContent='-';
     document.getElementById('drawer-branch').textContent='-';
     document.getElementById('drawer-files-meta').textContent='-';
-    document.getElementById('drawer-prompt').textContent='(에이전트를 선택하세요)';
-    document.getElementById('drawer-summary').textContent='(아직 없음)';
-    document.getElementById('drawer-logs').textContent='(아직 없음)';
+    document.getElementById('drawer-prompt').textContent='(Select an agent)';
+    document.getElementById('drawer-summary').textContent='(None yet)';
+    document.getElementById('drawer-logs').textContent='(None yet)';
     document.getElementById('agent-prompt-input').disabled=true;
     document.getElementById('agent-prompt-send').disabled=true;
     return;
   }
   const a=findAgent(drawerAgentId);
   if(!a){drawerAgentId=null;syncDrawer();return;}
-  document.getElementById('drawer-title').textContent=`${a.name} 작업 상세`;
+  document.getElementById('drawer-title').textContent=`${a.name} Task Detail`;
   document.getElementById('drawer-engine').textContent=fmtEngine(a.engine||'mock',a.model||'demo');
-  document.getElementById('drawer-phase').textContent=agentStatusMeta(a).text||'대기';
-  document.getElementById('drawer-task').textContent=a.taskTitle||'대기 중';
-  document.getElementById('drawer-workspace').textContent=a.workspaceStrategy||'대기';
+  document.getElementById('drawer-phase').textContent=agentStatusMeta(a).text||'Idle';
+  document.getElementById('drawer-task').textContent=a.taskTitle||'Waiting';
+  document.getElementById('drawer-workspace').textContent=a.workspaceStrategy||'Idle';
   document.getElementById('drawer-branch').textContent=a.workspaceBranch||'-';
-  document.getElementById('drawer-files-meta').textContent=a.filesChanged?.length?`${a.filesChanged.length}개`:a.runStatus==='done'?'0개':'-';
-  document.getElementById('drawer-prompt').textContent=a.runPrompt||'(선택된 작업이 없습니다)';
-  document.getElementById('drawer-summary').textContent=a.runSummary||'(아직 없음)';
-  document.getElementById('drawer-logs').textContent=(a.runLogs&&a.runLogs.length)?a.runLogs.slice(-18).join('\n\n'):'(아직 없음)';
+  document.getElementById('drawer-files-meta').textContent=a.filesChanged?.length?`${a.filesChanged.length} files`:a.runStatus==='done'?'0 files':'-';
+  document.getElementById('drawer-prompt').textContent=a.runPrompt||'(No task selected)';
+  document.getElementById('drawer-summary').textContent=a.runSummary||'(None yet)';
+  document.getElementById('drawer-logs').textContent=(a.runLogs&&a.runLogs.length)?a.runLogs.slice(-18).join('\n\n'):'(None yet)';
   document.getElementById('agent-prompt-input').disabled=false;
   document.getElementById('agent-prompt-send').disabled=false;
 }
 function openTaskDrawer(agentId){drawerAgentId=String(agentId);syncDrawer();}
 function closeTaskDrawer(){drawerAgentId=null;syncDrawer();}
 
-// Send prompt to individual agent — connects to live backend if available
+// ═══════════════════════════════════════════════════════════════
+// BROWSER GEMINI API — direct fetch to Gemini REST API
+// ═══════════════════════════════════════════════════════════════
+async function callGeminiAPI(apiKey,prompt,agent){
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  agent.appendRunLog(`Sending to Gemini...`);
+  agent.applyRunPhase('coding',0.2,'Calling Gemini API...');
+  const resp=await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      contents:[{parts:[{text:prompt}]}],
+      generationConfig:{maxOutputTokens:2048,temperature:0.7},
+    }),
+  });
+  if(!resp.ok){
+    const err=await resp.text();
+    throw new Error(`Gemini API ${resp.status}: ${err.slice(0,200)}`);
+  }
+  const data=await resp.json();
+  const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'(No response)';
+  return text;
+}
+
+// Send prompt to individual agent
 async function sendAgentPrompt(){
   if(!drawerAgentId)return;
   const input=document.getElementById('agent-prompt-input');
@@ -46,10 +70,13 @@ async function sendAgentPrompt(){
   const a=findAgent(drawerAgentId);
   if(!a)return;
 
+  // Check if this agent can use real Gemini API (browser mode)
+  const apiKey=document.getElementById('api-key-input')?.value?.trim();
+  const isGeminiAgent=a.engine==='gemini';
+
   if(liveMode){
-    // Live mode: dispatch to backend via IPC
     try{
-      updateLiveStatus(`${a.name} 실행 요청 중`);
+      updateLiveStatus(`${a.name} starting...`);
       const mode=document.getElementById('collab-mode')?.value||'solo';
       await liveAPI.startRun({
         agentId:String(a.id),
@@ -58,13 +85,36 @@ async function sendAgentPrompt(){
         mode,
       });
     }catch(err){
-      updateLiveStatus(err.message||'실행 실패');
-      a.appendRunLog(`ERROR: ${err.message||'실행 실패'}`);
+      updateLiveStatus(err.message||'Run failed');
+      a.appendRunLog(`ERROR: ${err.message||'Run failed'}`);
       a.runStatus='failed';
       updateCard(a.id);
     }
+  } else if(isGeminiAgent&&apiKey){
+    // Real Gemini API call from browser
+    a.beginLiveRun({
+      id:`gemini-${Date.now()}-${a.id}`,
+      prompt,
+      taskTitle:summarizePrompt(prompt),
+      progress:.08,
+      phase:'planning',
+    });
+    updateLiveStatus(`${a.name} calling Gemini...`);
+    try{
+      a.applyRunPhase('planning',0.1,'Sending request...');
+      const response=await callGeminiAPI(apiKey,prompt,a);
+      a.applyRunPhase('coding',0.6,'Processing response...');
+      a.appendRunLog(response);
+      a.applyRunPhase('summarizing',0.9,'Finalizing...');
+      a.finishRun('done',{summary:response.slice(0,200),filesChanged:[]});
+      updateLiveStatus(`${a.name} done`);
+    }catch(err){
+      a.appendRunLog(`ERROR: ${err.message}`);
+      a.finishRun('failed',{errorText:err.message});
+      updateLiveStatus(`Gemini failed: ${err.message.slice(0,60)}`);
+    }
   } else {
-    // Mock mode: local simulation
+    // Mock mode
     a.beginLiveRun({
       id:`mock-${Date.now()}-${a.id}`,
       prompt,
@@ -77,7 +127,7 @@ async function sendAgentPrompt(){
     const timer=setInterval(()=>{
       progress=Math.min(1,progress+.12);
       const phase=progress<.25?'planning':progress<.8?'coding':'summarizing';
-      a.applyRunPhase(phase,progress,phase==='coding'?'모의 코딩 중':'모의 작업 진행 중');
+      a.applyRunPhase(phase,progress,phase==='coding'?'Mock coding...':'Mock running...');
       if(progress>=1){
         clearInterval(timer);
         a.finishRun('done',{summary:`${a.name} mock run finished.`,filesChanged:[]});
@@ -92,17 +142,24 @@ function renderEngineList(){
   const host=document.getElementById('engine-status-list');
   const items=[...engineStatuses.values()];
   if(!items.length){
-    host.innerHTML='<div class="engine-item"><div class="name">Mock</div><div class="meta">브라우저 데모 모드</div></div>';
+    host.innerHTML='<div class="engine-item"><div class="name">Mock</div><div class="meta">Browser demo mode</div></div>';
     return;
   }
-  host.innerHTML=items.map((engine)=>`<div class="engine-item${engine.available?'':' offline'}"><div class="name">${engine.label}</div><div class="meta">${engine.available?'CLI 사용 가능':'이 머신에서 CLI 없음'}</div></div>`).join('');
+  host.innerHTML=items.map((engine)=>`<div class="engine-item${engine.available?'':' offline'}"><div class="name">${engine.label}</div><div class="meta">${engine.available?'CLI available':'CLI not found'}</div></div>`).join('');
+}
+
+function formatAgentIdTag(id){
+  return String(id).slice(0,5);
 }
 
 function addCard(a){
   const bt=BLDG_TYPES.find(b=>b.id===a.bt);const d=document.createElement('div');
   d.className='agent-card';d.id=`ac-${a.id}`;
-  d.innerHTML=`<div class="card-top"><div class="aname">${a.name}</div><button class="abtn-remove" title="SCV 제거">✕</button></div><div class="astatus">대기</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">대기 중</div><div class="pbar"><div class="pfill"></div></div>`;
-  d.querySelector('.abtn-remove').onclick=(e)=>{e.stopPropagation();void removeAgent(a.id);};
+  const badge=String(a.sessionKind||'').startsWith('codex-cli')?'<span class="agent-badge">YOU</span>':'';
+  const removeButton=a.locked?'':`<button class="abtn-remove" title="Remove SCV">✕</button>`;
+  d.innerHTML=`<div class="card-top"><div class="aname">${a.name}${badge}<span style="color:#556;font-size:9px;font-weight:normal"> (${formatAgentIdTag(a.id)})</span></div>${removeButton}</div><div class="astatus">Idle</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">Waiting</div><div class="pbar"><div class="pfill"></div></div>`;
+  const removeEl=d.querySelector('.abtn-remove');
+  if(removeEl)removeEl.onclick=(e)=>{e.stopPropagation();void removeAgent(a.id);};
   d.onclick=(e)=>{
     if(!e.ctrlKey&&!e.metaKey){
       clearSelection();
@@ -127,15 +184,19 @@ function updateCard(id){
   const a=agents.find(a=>a.id===id);if(!a)return;const c=document.getElementById(`ac-${id}`);if(!c)return;
   const st=c.querySelector('.astatus'),fl=c.querySelector('.pfill');
   const engineEl=c.querySelector('.aengine'),taskEl=c.querySelector('.atask');
-  c.className='agent-card'+(a.state==='building'?' building':'')+(a.progress>=1&&a.runStatus!=='running'?' done':'')+(a.runStatus==='failed'?' failed':'');
+  c.className='agent-card'
+    +(a.sessionKind?' session':'')
+    +(a.state==='building'?' building':'')
+    +(a.progress>=1&&a.runStatus!=='running'?' done':'')
+    +(a.runStatus==='failed'?' failed':'');
   const status=agentStatusMeta(a);
-  st.textContent=status.text||'대기';
+  st.textContent=status.text||'Idle';
   st.style.color=status.color;
   const wsLabel=a.workspaceBranch?` · ${a.workspaceBranch}`:'';
   engineEl.textContent=fmtEngine(a.engine||'mock',a.model||'demo')+wsLabel;
-  taskEl.textContent=a.taskTitle||'대기 중';
+  taskEl.textContent=a.taskTitle||'Waiting';
   fl.style.width=`${a.progress*100|0}%`;
   fl.className='pfill'+(a.progress>=1&&a.runStatus!=='running'?' complete':'');
   syncDrawer();
 }
-function updCnt(){document.getElementById('agent-count').textContent=`에이전트: ${agents.length}`;}
+function updCnt(){document.getElementById('agent-count').textContent=`Agents: ${agents.length}`;}

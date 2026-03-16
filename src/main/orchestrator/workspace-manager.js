@@ -170,16 +170,41 @@ class WorkspaceManager {
     fs.appendFileSync(p, JSON.stringify(entry) + '\n');
   }
 
-  buildSharedContext() {
+  buildSharedContext(currentAgentId, allAgents = []) {
     const brief = this.getSharedBrief();
     const decisions = this.getDecisionLog();
-    const recent = this.getRecentMessages(5);
+    const recent = this.getRecentMessages(10);
     let ctx = '';
+
+    // Team roster — who you are and who your teammates are
+    if (allAgents.length > 0) {
+      ctx += `## Your Identity\n`;
+      const me = allAgents.find(a => String(a.id) === String(currentAgentId));
+      if (me) {
+        ctx += `You are **${me.name}** (ID:${me.id}), engine: ${me.engine}, model: ${me.model}.\n\n`;
+      }
+      const teammates = allAgents.filter(a => String(a.id) !== String(currentAgentId));
+      if (teammates.length > 0) {
+        ctx += `## Team (your fellow SCV agents)\n`;
+        teammates.forEach(a => {
+          const statusText = a.status === 'running' ? '작업 중' : a.status === 'idle' ? '대기' : a.status;
+          ctx += `- **${a.name}** (ID:${a.id}) — ${a.engine}/${a.model} — ${statusText}${a.taskTitle && a.taskTitle !== 'Waiting' ? ` — "${a.taskTitle}"` : ''}\n`;
+        });
+        ctx += `\nYou can mention teammates by name. Your messages will be shared with them via the shared message log.\n\n`;
+      }
+    }
+
     if (brief.trim().length > 20) ctx += `## Project Brief\n${brief}\n\n`;
     if (decisions.trim().length > 20) ctx += `## Decision Log\n${decisions}\n\n`;
+
+    // Recent conversation / activity
     if (recent.length > 0) {
-      ctx += `## Recent Agent Activity\n`;
-      recent.forEach(m => { ctx += `- [${m.agentName||'agent'}] ${m.summary||m.text||''}\n`; });
+      ctx += `## Recent Team Conversation\n`;
+      recent.forEach(m => {
+        const sender = m.agentName || 'agent';
+        const text = m.text || m.summary || '';
+        if (text) ctx += `- **${sender}**: ${text.slice(0, 200)}\n`;
+      });
       ctx += '\n';
     }
     return ctx;

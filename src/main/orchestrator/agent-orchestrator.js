@@ -5,6 +5,9 @@ const readline = require('readline');
 
 const { RunStore } = require('./run-store');
 const { WorkspaceManager } = require('./workspace-manager');
+const { AgentRegistry } = require('./agent-registry');
+const { MessageBus } = require('./message-bus');
+const { PromptCompiler } = require('./prompt-compiler');
 const { CodexAdapter } = require('../engines/codex-adapter');
 const { ClaudeAdapter } = require('../engines/claude-adapter');
 const { GeminiAdapter } = require('../engines/gemini-adapter');
@@ -18,22 +21,68 @@ const PHASE_LIMITS = {
   done: 1,
 };
 
+function sanitizeSessionToken(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'session';
+}
+
+function buildSessionAgent(payload = {}) {
+  const token = payload.threadId || payload.termSessionId || payload.sessionId || payload.id || 'session';
+  const shortToken = String(token).slice(0, 8);
+  const sessionId = payload.sessionId || payload.id || `codex-cli-${sanitizeSessionToken(token)}`;
+  return {
+    id: sessionId,
+    name: payload.name || 'Codex CLI',
+    engine: payload.engine || 'codex',
+    model: payload.model || 'gpt-5',
+    role: payload.role || 'assistant',
+    locked: payload.locked !== false,
+    sessionKind: payload.sessionKind || 'codex-cli',
+    taskTitle: payload.taskTitle || `Talking with you in CLI ${shortToken}`,
+  };
+}
+
+function buildPrimarySessionAgent(env = process.env) {
+  const threadId = env.CODEX_THREAD_ID || '';
+  const termSessionId = env.TERM_SESSION_ID || '';
+  if (!threadId && !termSessionId) return null;
+  return buildSessionAgent({
+    threadId,
+    termSessionId,
+    name: 'Codex CLI',
+    sessionKind: 'codex-cli',
+  });
+}
+
 class AgentOrchestrator extends EventEmitter {
   constructor(projectRoot) {
     super();
     this.projectRoot = projectRoot;
     this.workspaceManager = new WorkspaceManager(this.projectRoot);
     this.runStore = new RunStore(path.join(this.projectRoot, '.clawcraft', 'runs'));
+    this.registry = new AgentRegistry();
+    this.messageBus = new MessageBus(path.join(this.projectRoot, '.clawcraft', 'shared'));
+    this.promptCompiler = new PromptCompiler(this.registry, this.messageBus, path.join(this.projectRoot, '.clawcraft', 'shared'));
     this.adapters = new Map([
       ['codex', new CodexAdapter()],
       ['claude', new ClaudeAdapter()],
       ['gemini', new GeminiAdapter()],
     ]);
-    this.agents = new Map();
+    // Legacy compat: this.agents delegates to registry
+    this.agents = this.registry.agents;
     this.activeRuns = new Map();
     this.agentsFile = path.join(this.projectRoot, '.clawcraft', 'agents.json');
+    // Forward message bus events
+    this.messageBus.on('message', (msg) => {
+      this.emitEvent({ type: 'agent.message', message: msg });
+    });
     // Restore agents from previous session, then clean orphans
     this._restoreAgents();
+    this._pruneLegacySessionAgents();
+    this._ensurePrimarySessionAgent();
     const knownIds = new Set(this.agents.keys());
     this.workspaceManager.cleanupOrphanWorktrees(knownIds);
   }
@@ -44,23 +93,37 @@ class AgentOrchestrator extends EventEmitter {
     try {
       const data = JSON.parse(fs.readFileSync(this.agentsFile, 'utf8'));
       for (const agent of data) {
-        agent.status = 'idle';
-        agent.currentRunId = null;
-        this.agents.set(String(agent.id), agent);
+        const adapter = this.adapters.get(agent.engine || 'codex');
+        agent.available = adapter ? adapter.isAvailable() : false;
+        agent.workspace = this.workspaceManager.getWorkingContext(String(agent.id));
+        this.registry.register(agent);
       }
     } catch {}
   }
 
+  _ensurePrimarySessionAgent() {
+    const primarySessionAgent = buildPrimarySessionAgent();
+    if (primarySessionAgent) {
+      this.createAgent(primarySessionAgent);
+    }
+  }
+
+  _pruneLegacySessionAgents() {
+    if (!this.agents.has('codex-session')) return;
+    this.agents.delete('codex-session');
+    try {
+      this.workspaceManager.removeWorktree('codex-session');
+    } catch {}
+    this._persistAgents();
+  }
+
   _persistAgents() {
     const fs = require('fs');
-    const data = [...this.agents.values()].map(a => ({
-      id: a.id, name: a.name, engine: a.engine, model: a.model, role: a.role,
-    }));
-    fs.writeFileSync(this.agentsFile, JSON.stringify(data, null, 2));
+    fs.writeFileSync(this.agentsFile, JSON.stringify(this.registry.toJSON(), null, 2));
   }
 
   listAgents() {
-    return [...this.agents.values()];
+    return this.registry.list();
   }
 
   getEngineStatuses() {
@@ -117,25 +180,22 @@ class AgentOrchestrator extends EventEmitter {
     const id = payload.id ?? `${Date.now()}`;
     const engine = payload.engine || 'codex';
     const adapter = this.adapters.get(engine);
-
-    // Create worktree for this agent
-    const workspace = this.workspaceManager.createWorktree(String(id));
-
-    const agent = {
+    const workspace = this.workspaceManager.getWorkingContext(String(id));
+    const agent = this.registry.register({
+      ...payload,
       id,
-      name: payload.name || `Agent-${id}`,
       engine,
-      model: payload.model || (engine === 'claude' ? 'default' : 'gpt-5'),
-      role: payload.role || 'builder',
-      status: 'idle',
-      currentRunId: null,
       available: adapter ? adapter.isAvailable() : false,
-      workspace, // { workdir, strategy, branch }
-    };
-    this.agents.set(String(id), agent);
+      workspace,
+    });
     this._persistAgents();
     this.emitEvent({ type: 'agent.created', agent });
     return agent;
+  }
+
+  registerSessionClient(client = {}) {
+    if (!client || (!client.sessionId && !client.threadId && !client.termSessionId)) return null;
+    return this.createAgent(buildSessionAgent(client));
   }
 
   async removeAgent(agentId) {
@@ -175,10 +235,7 @@ class AgentOrchestrator extends EventEmitter {
     };
     // 3단계: prepend shared context to prompt (skip for solo mode)
     const mode = payload.mode || 'solo';
-    const sharedCtx = mode !== 'solo' ? this.workspaceManager.buildSharedContext() : '';
-    const fullPrompt = sharedCtx
-      ? `${sharedCtx}---\n\n## Task\n${payload.prompt}`
-      : payload.prompt;
+    const fullPrompt = this.promptCompiler.compile(agentId, payload.prompt, mode);
 
     const runId = `run_${Date.now()}_${agentId}`;
     const startedAt = new Date().toISOString();
@@ -313,6 +370,19 @@ class AgentOrchestrator extends EventEmitter {
       run.progress = Math.max(run.progress, run.phase === 'coding' ? 0.22 : run.progress);
       const prevSummary = run.summary ? `${run.summary}\n\n${event.text}` : event.text;
       this.runStore.setSummary(runId, prevSummary.trim().slice(-6000));
+      // Record to shared conversation log (skip code-heavy messages)
+      const clean = (event.text || '').replace(/```[\s\S]*?```/g, '').trim();
+      if (clean.length > 10 && clean.length < 500) {
+        this.messageBus.send({
+          from: run.agentId,
+          fromName: run.agentName,
+          to: 'all',
+          channel: 'radio',
+          kind: 'chat',
+          text: clean.slice(0, 300),
+          relatedRunId: run.id,
+        });
+      }
       this.emitEvent({
         type: 'run.output',
         runId,
@@ -358,15 +428,15 @@ class AgentOrchestrator extends EventEmitter {
       agent.status = 'idle';
       agent.currentRunId = null;
     }
-    // 3단계: record completion to shared messages
-    this.workspaceManager.appendMessage({
-      type: 'run.completed',
-      agentId: run.agentId,
-      agentName: run.agentName,
-      engine: run.engine,
-      runId,
-      summary: finalSummary.slice(0, 500),
-      filesChanged: (run.filesChanged || []).slice(0, 20),
+    // Record completion to message bus
+    this.messageBus.send({
+      from: run.agentId,
+      fromName: run.agentName,
+      to: 'all',
+      channel: 'radio',
+      kind: 'report',
+      text: `작업 완료: ${finalSummary.slice(0, 300)}`,
+      relatedRunId: runId,
     });
     this.activeRuns.delete(String(run.agentId));
     this.emitEvent({

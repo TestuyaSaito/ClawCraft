@@ -9,13 +9,13 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 #game-canvas{position:fixed;top:44px;left:0;cursor:none}
 #top-bar{position:fixed;top:0;left:0;width:100%;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:linear-gradient(180deg,rgba(0,20,60,.95),rgba(0,10,30,.85));border-bottom:1px solid #1a3a6a;z-index:20}
 #top-bar .title{color:#4a9eff;font-size:14px;font-weight:bold;text-shadow:0 0 8px rgba(74,158,255,.4);letter-spacing:1px}
-.btn{background:linear-gradient(180deg,#1a3a6a,#0d1f3c);border:1px solid #2a5a9a;color:#7ab8ff;padding:6px 14px;font-size:12px;font-family:inherit;cursor:pointer;transition:all .15s;border-radius:2px}
+.btn{background:linear-gradient(180deg,#1a3a6a,#0d1f3c);border:1px solid #2a5a9a;color:#7ab8ff;padding:3px 8px;font-size:10px;font-family:inherit;cursor:pointer;transition:all .15s;border-radius:2px;white-space:nowrap}
 .btn:hover{background:linear-gradient(180deg,#2a5a9a,#1a3a6a);color:#aad4ff;border-color:#4a8adf}
 .btn:active{transform:scale(.96)}
-#controls{display:flex;gap:8px;align-items:center}
-.ctrl-input,.ctrl-select{height:30px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 10px;font-size:11px;font-family:inherit;border-radius:2px;outline:none}
-.ctrl-input{width:300px}
-.ctrl-select{min-width:110px}
+#controls{display:flex;gap:4px;align-items:center;flex-wrap:nowrap}
+.ctrl-input,.ctrl-select{height:24px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 6px;font-size:10px;font-family:inherit;border-radius:2px;outline:none}
+.ctrl-input{width:220px}
+.ctrl-select{min-width:80px}
 .info{font-size:11px;color:#5a8abf}
 #left-panel{display:none}
 .layer-copy,.layer-chip,.engine-item{display:none}
@@ -26,8 +26,10 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 .agent-card.building{border-color:#f0a030;box-shadow:0 0 6px rgba(240,160,48,.15)}
 .agent-card.done{border-color:#30d060;box-shadow:0 0 6px rgba(48,208,96,.15)}
 .agent-card.failed{border-color:#c74444;box-shadow:0 0 6px rgba(199,68,68,.22)}
+.agent-card.session{border-color:#4a9eff;box-shadow:0 0 10px rgba(74,158,255,.18)}
 .agent-card .card-top{display:flex;justify-content:space-between;align-items:center}
 .agent-card .aname{color:#4a9eff;font-weight:bold;font-size:11px}
+.agent-badge{display:inline-block;margin-left:6px;padding:1px 4px;border:1px solid rgba(74,158,255,.45);border-radius:999px;color:#d8ebff;font-size:8px;letter-spacing:.08em;background:rgba(74,158,255,.14);vertical-align:middle}
 .agent-card .abtn-remove{background:none;border:none;color:#664444;font-size:11px;cursor:pointer;padding:0 2px;line-height:1;transition:color .15s}
 .agent-card .abtn-remove:hover{color:#ff4444}
 .agent-card .astatus{color:#888;font-size:10px;margin-top:2px}
@@ -63,65 +65,66 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
       <option value="claude">Claude</option>
       <option value="gemini">Gemini</option>
     </select>
-    <input class="ctrl-input" id="task-prompt" placeholder="작업 프롬프트를 입력하면 SCV가 배럭을 다시 짓습니다" />
+    <input class="ctrl-input" id="task-prompt" placeholder="Enter task prompt..." />
     <select class="ctrl-select" id="collab-mode">
       <option value="solo">Solo</option>
       <option value="shared-brief">Shared Brief</option>
       <option value="relay">Relay</option>
     </select>
-    <button class="btn" id="btn-spawn">+ 에이전트 추가</button>
-    <button class="btn" id="btn-start">▶ 작업 시작</button>
-    <button class="btn" id="btn-reset">↺ 리셋</button>
-    <button class="btn" id="btn-music">♪ 음악</button>
-    <span class="info" id="agent-count">에이전트: 0</span>
+    <input class="ctrl-input" id="api-key-input" style="width:140px" placeholder="Gemini API Key" type="password" />
+    <button class="btn" id="btn-spawn">+ Agent</button>
+    <button class="btn" id="btn-start">▶ Start</button>
+    <button class="btn" id="btn-reset">↺ Reset</button>
+    <button class="btn" id="btn-music">♪ Music</button>
+    <span class="info" id="agent-count">Agents: 0</span>
     <span class="info" id="live-status">MOCK DEMO</span>
   </div>
 </div>
 <canvas id="game-canvas"></canvas>
 <div id="left-panel">
-  <div class="panel-title">작전 레이어</div>
-  <div class="layer-copy" id="layer-copy">브라우저 모드에서는 mock 작업만 실행됩니다.</div>
+  <div class="panel-title">Operations</div>
+  <div class="layer-copy" id="layer-copy">Browser mode: mock tasks only.</div>
   <div id="engine-status-list"></div>
 </div>
 <div id="side-panel">
-  <div class="panel-title">에이전트 목록</div>
+  <div class="panel-title">Agent List</div>
   <div id="agent-list"></div>
 </div>
 <canvas id="minimap"></canvas>
 <div id="fps-counter"></div>
 <aside id="task-drawer">
   <div class="drawer-head">
-    <div class="drawer-title" id="drawer-title">작업 상세</div>
+    <div class="drawer-title" id="drawer-title">Task Detail</div>
   </div>
   <div class="drawer-body">
     <dl class="drawer-meta">
-      <dt>엔진</dt><dd id="drawer-engine">-</dd>
-      <dt>상태</dt><dd id="drawer-phase">-</dd>
-      <dt>작업명</dt><dd id="drawer-task">-</dd>
+      <dt>Engine</dt><dd id="drawer-engine">-</dd>
+      <dt>Status</dt><dd id="drawer-phase">-</dd>
+      <dt>Task</dt><dd id="drawer-task">-</dd>
       <dt>Workspace</dt><dd id="drawer-workspace">-</dd>
       <dt>Branch</dt><dd id="drawer-branch">-</dd>
-      <dt>변경 파일</dt><dd id="drawer-files-meta">-</dd>
+      <dt>Files</dt><dd id="drawer-files-meta">-</dd>
     </dl>
     <div id="agent-prompt-box">
-      <input id="agent-prompt-input" placeholder="이 에이전트에 작업 지시..." />
-      <button id="agent-prompt-send">전송</button>
+      <input id="agent-prompt-input" placeholder="Send task to this agent..." />
+      <button id="agent-prompt-send">Send</button>
     </div>
     <div class="drawer-section">
-      <h4>프롬프트</h4>
-      <pre id="drawer-prompt">(선택된 작업이 없습니다)</pre>
+      <h4>Prompt</h4>
+      <pre id="drawer-prompt">(No task selected)</pre>
     </div>
     <div class="drawer-section">
-      <h4>요약</h4>
-      <pre id="drawer-summary">(아직 없음)</pre>
+      <h4>Summary</h4>
+      <pre id="drawer-summary">(None yet)</pre>
     </div>
     <div class="drawer-section">
-      <h4>실행 로그</h4>
-      <pre id="drawer-logs">(아직 없음)</pre>
+      <h4>Run Log</h4>
+      <pre id="drawer-logs">(None yet)</pre>
     </div>
     <div class="drawer-section">
-      <h4>변경 Diff</h4>
-      <pre id="drawer-diff" style="max-height:120px">(작업 완료 후 표시됩니다)</pre>
-      <button id="drawer-load-diff" class="btn" style="margin-top:4px;padding:3px 8px;font-size:9px">Diff 로드</button>
+      <h4>Diff</h4>
+      <pre id="drawer-diff" style="max-height:120px">(Shown after task completes)</pre>
+      <button id="drawer-load-diff" class="btn" style="margin-top:4px;padding:3px 8px;font-size:9px">Load Diff</button>
     </div>
   </div>
 </aside>
@@ -139,7 +142,7 @@ const MINING_ACCEL=2.7; // 3x slower accel/decel for mining trips
 const MINING_PAUSE=6; // seconds to mine at mineral
 const MAP_IMG_W=2272,MAP_IMG_H=1420;
 const BLDG_TYPES=[
-  {id:'command_center',name:'커맨드센터',w:127,h:103,color:'#8a5a4a',colorR:138,colorG:90,colorB:74},
+  {id:'command_center',name:'Command Center',w:127,h:103,color:'#8a5a4a',colorR:138,colorG:90,colorB:74},
 ];
 // === SCV Sprite Atlas ===
 const SCV_CELL=42,SCV_ROW_H=49,SCV_SCALE=1.0;
@@ -154,21 +157,30 @@ const SCV_DECEL_DIST=30;
 let scvImg=null;
 // Command Center construction stages (row 1 of buildings.png)
 const CC_STAGES=[
-  {x:11,  w:62},   // stage 1: foundation
-  {x:119, w:61},   // stage 2
-  {x:224, w:108},  // stage 3
-  {x:347, w:121},  // stage 4
-  {x:481, w:127},  // stage 5
-  {x:610, w:127},  // stage 6: complete
+  {x:11,  w:62,  y:7},  // stage 1: foundation
+  {x:119, w:61,  y:7},  // stage 2
+  {x:224, w:108, y:7},  // stage 3
+  {x:347, w:121, y:7},  // stage 4
+  {x:481, w:127, y:7},  // stage 5 (불 꺼짐)
+  {x:610, w:127, y:10}, // stage 6 (불 켜짐)
 ];
-const CC_Y=7,CC_H=103;
+const CC_H=103;
 // Barracks (row 2, kept for reference)
 const BARR_STAGES=[
   {x:16,  w:59},{x:124,w:60},{x:228,w:108},{x:370,w:115},{x:502,w:124},{x:644,w:124},
 ];
 const BARR_Y=135,BARR_H=111;
-// CC flicker pattern when working: irregular 5/6 switching
-const CC_FLICKER_CYCLES=[[4,4,4,5],[4,4,5],[4,5]];
+// CC flicker: off(4) 1 frame + on(5) 1~4 frames random
+// Generate flicker sequence dynamically per agent
+function genCCFlicker(){
+  const seq=[];
+  for(let i=0;i<20;i++){
+    seq.push(4); // 꺼짐 1프레임
+    const onCount=1+Math.floor(Math.random()*4); // 켜짐 1~4프레임
+    for(let j=0;j<onCount;j++)seq.push(5);
+  }
+  return seq;
+}
 let mineralImg=null;
 let bldgImg=null;
 const canvas=document.getElementById('game-canvas');
@@ -229,7 +241,7 @@ function loadScvSprite(){
   arrowCursorImg=new Image(); arrowCursorImg.src='./assets/sc1_green_arrow_spritesheet.png';
   gasImg=new Image(); gasImg.src='./assets/vespene_gas.png';
   waterMaskImg=new Image(); waterMaskImg.src='./assets/water_mask.png';
-  mineralImg=new Image(); mineralImg.src='./assets/mineral_real.png';
+  mineralImg=new Image(); mineralImg.src='./assets/mineral_sc1_v2.png';
   moveMarkerImgs[0]=new Image(); moveMarkerImgs[0].src='./assets/sc1_move_marker_small.png';
   moveMarkerImgs[1]=new Image(); moveMarkerImgs[1].src='./assets/sc1_move_marker_medium.png';
   moveMarkerImgs[2]=new Image(); moveMarkerImgs[2].src='./assets/sc1_move_marker_large.png';
@@ -258,21 +270,25 @@ function drawBarracks(bx,by,stageIdx){
   ctx.drawImage(bldgImg,s.x,BARR_Y,s.w,BARR_H,bx-dw/2,by-dh+14,dw,dh);
 }
 
-function drawBldg(bx,by,type,progress,isWorking){
+function drawBldg(bx,by,type,progress,isWorking,flickerIdx){
   const stageIdx=Math.min(5,Math.floor(progress*6));
-  // CC flicker: when working and complete, alternate stage 5/6 irregularly
   let drawIdx=stageIdx;
-  if(isWorking&&progress>=0.99){
-    const cycle=CC_FLICKER_CYCLES[Math.floor(time*1.3)%CC_FLICKER_CYCLES.length];
-    const fi=Math.floor(time*6)%cycle.length;
-    drawIdx=cycle[fi];
+  if(progress>=0.99){
+    if(isWorking&&typeof flickerIdx==='number'){
+      drawIdx=flickerIdx; // agent-driven flicker (4=off, 5=on)
+    } else {
+      drawIdx=4; // 불꺼진 완성형
+    }
   }
   const s=CC_STAGES[drawIdx];
   const scale=0.8;
+  // Always use stage 6 (complete) dimensions for consistent positioning
+  const refW=CC_STAGES[5].w*scale,refH=CC_H*scale;
   const dw=s.w*scale,dh=CC_H*scale;
-  ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(bx,by+8,dw*0.4,8,0,0,6.283);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(bx,by+8,refW*0.4,8,0,0,6.283);ctx.fill();
   if(bldgImg&&bldgImg.complete&&bldgImg.naturalWidth){
-    ctx.drawImage(bldgImg,s.x,CC_Y,s.w,CC_H,bx-dw/2,by-dh+14,dw,dh);
+    // Anchor to bottom-center using reference size so flickering doesn't shift
+    ctx.drawImage(bldgImg,s.x,s.y,s.w,CC_H,bx-dw/2,by-refH+14,dw,dh);
   } else {
     ctx.fillStyle='#4a5a6a';ctx.fillRect(bx-30,by-40,60,40);
   }
@@ -289,7 +305,7 @@ function drawBldg(bx,by,type,progress,isWorking){
 // Draw mineral crystal
 function drawMineral(mx,my){
   if(!mineralImg||!mineralImg.complete||!mineralImg.naturalWidth)return;
-  const scale=1.2;
+  const scale=0.78;
   const dw=mineralImg.naturalWidth*scale,dh=mineralImg.naturalHeight*scale;
   ctx.drawImage(mineralImg,mx-dw/2,my-dh/2,dw,dh);
 }
@@ -578,7 +594,7 @@ class Agent{
   constructor(id,name,sx,sy,bx,by,bt,meta={}){
     this.id=id;this.name=name;this.x=sx;this.y=sy;
     this.bx=bx;this.by=by;this.bt=bt;
-    this.state='idle';this.progress=1; // CC starts fully built
+    this.state='idle';this.progress=0; // CC not built yet
     this.fr=0;this.ft=0;this._moving=false;
     this.vDir=12;this.tDir=12;
     this.spd=0;
@@ -592,18 +608,21 @@ class Agent{
     // Manual command state
     this.manualTimer=0;this.prevAutoState=null;
     // Mineral position (below command center)
-    this.mx=bx+((Math.random()-.5)*40);this.my=by+80+Math.random()*20;
+    this.mx=bx;this.my=by+90; // mineral exactly centered below CC, aligned
+    this.ccFlicker=genCCFlicker();this.ccFlickerT=0;
     this.miningTarget=false;
     this.miningPause=0; // seconds remaining to mine at mineral
     this.engine=meta.engine||'mock';
     this.model=meta.model||'demo';
     this.role=meta.role||'builder';
+    this.locked=!!meta.locked;
+    this.sessionKind=meta.sessionKind||'';
     this.runId=null;
     this.runStatus='idle';
     this.runPhase='idle';
-    this.runLabel='대기';
+    this.runLabel='Idle';
     this.runPrompt='';
-    this.taskTitle='대기 중';
+    this.taskTitle=meta.taskTitle||'Waiting';
     this.runSummary='';
     this.runLogs=[];
     this.filesChanged=[];
@@ -614,11 +633,17 @@ class Agent{
     this.demolishNext=null;
     this.workspaceStrategy='';
     this.workspaceBranch='';
+    this.chatBubble='';
+    this.chatBubbleTimer=0;
   }
   syncMeta(meta={}){
+    this.name=meta.name||this.name;
     this.engine=meta.engine||this.engine;
     this.model=meta.model||this.model;
     this.role=meta.role||this.role;
+    this.locked=meta.locked ?? this.locked;
+    this.sessionKind=meta.sessionKind||this.sessionKind;
+    this.taskTitle=meta.taskTitle||this.taskTitle;
     updateCard(this.id);
   }
   startBuild(opts={}){
@@ -629,11 +654,17 @@ class Agent{
     if(typeof opts.targetProgress==='number')this.targetProgress=opts.targetProgress;
     initAudio();playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);play('click',.3);
     this.manualTimer=0;this.prevAutoState=null;
-    this.progress=1; // CC stays built
-    this.miningTarget=true;
-    this.miningPause=0;
-    this.moveTo(this.mx,this.my,()=>this.setState('building'));
-    this.setState('move_to_build');
+    if(this.progress>=1){
+      // CC already built → go mine minerals
+      this.miningTarget=true;
+      this.miningPause=0;
+      this.moveTo(this.mx,this.my,()=>this.setState('building'));
+      this.setState('move_to_build');
+    } else {
+      // CC not built yet → go on top of building site to construct
+      this.moveTo(this.bx+(Math.random()-.5)*20,this.by-5,()=>this.setState('building'));
+      this.setState('move_to_build');
+    }
   }
   setState(s){
     const old=this.state;this.state=s;
@@ -644,12 +675,23 @@ class Agent{
       this.targetProgress=1;
       this.runStatus=this.runStatus==='running'?'done':this.runStatus;
       this.runPhase=this.runPhase==='idle'?'done':this.runPhase;
-      this.runLabel=this.runLabel==='대기'?'작업 완료':this.runLabel;
+      this.runLabel=this.runLabel==='Idle'?'Complete':this.runLabel;
       stopWeld(this.id);
       this.flashAlpha=1;this.flashScale=1;
       setTimeout(()=>playV('scv_jobdone'),400);
       play('complete',.4);
-      setTimeout(()=>{if(this.state==='complete')this.startPatrol();},2000);
+      setTimeout(()=>{
+        if(this.state==='complete'){
+          // Move to below CC energy bar — 8 random directions (9시~3시)
+          const dirs=[Math.PI,Math.PI*7/8,Math.PI*3/4,Math.PI/2,Math.PI*5/8,Math.PI*3/8,Math.PI/4,0];
+          const angle=dirs[Math.random()*dirs.length|0];
+          const dist=45+Math.random()*10;
+          const tx=this.bx+Math.cos(angle)*dist;
+          const ty=this.by+25+Math.sin(angle)*dist*0.5;
+          this.moveTo(tx,ty,null);
+          this.setState('idle_at_bldg');
+        }
+      },2000);
     }
     if(s==='demolishing'){stopWeld(this.id);}
     updateCard(this.id);
@@ -658,7 +700,7 @@ class Agent{
     this.runId=run.id;
     this.runStatus='running';
     this.runPhase=run.phase||'planning';
-    this.runLabel='작업 준비 중';
+    this.runLabel='Preparing';
     this.runPrompt=run.prompt||this.runPrompt;
     this.taskTitle=run.taskTitle||summarizePrompt(run.prompt);
     this.runSummary='';
@@ -701,12 +743,20 @@ class Agent{
     this.runLogs.push(text);
     if(this.runLogs.length>80)this.runLogs=this.runLogs.slice(-80);
     this.runSummary=this.runLogs.slice(-8).join('\n\n');
+    // 코드가 아닌 일반 대화만 말풍선으로 표시
+    const clean=text.replace(/```[\s\S]*?```/g,'').replace(/^\s*[-*]\s/gm,'').trim();
+    if(clean.length>3&&!clean.startsWith('ERROR')&&!clean.startsWith('MOCK')){
+      this.chatBubble=clean.slice(0,80)+(clean.length>80?'…':'');
+      this.chatBubbleTimer=999; // stays until next message replaces it
+    }
     syncDrawer();
   }
   finishRun(status,run){
     this.runStatus=status;
     this.runPhase=status==='done'?'done':status;
-    this.runLabel=status==='done'?'작업 완료':status==='failed'?'실패':'취소됨';
+    this.runLabel=status==='done'?'Complete':status==='failed'?'Failed':'Cancelled';
+    // Clear chat bubble after 5 seconds when task ends
+    setTimeout(()=>{if(this.runStatus!=='running')this.chatBubbleTimer=0;},5000);
     this.runSummary=run.summary||this.runSummary;
     this.filesChanged=run.filesChanged||this.filesChanged;
     this.errorText=run.errorText||this.errorText;
@@ -774,6 +824,13 @@ class Agent{
     }
     const sp=maxSpd*this.spd*d;
     this.x+=dx/dist*sp;this.y+=dy/dist*sp;
+    // CC collision: after built, SCV can't go above CC bottom edge
+    if(this.progress>=1&&this.state!=='building'){
+      const ccBottom=this.by+18;
+      if(this.y<ccBottom&&Math.abs(this.x-this.bx)<50){
+        this.y=ccBottom;
+      }
+    }
     this._moving=true;
     return true;
   }
@@ -785,45 +842,66 @@ class Agent{
   update(d){
     this._moving=false;
     if(this.flashAlpha>0){this.flashAlpha-=d*1.2;this.flashScale+=d*2.5;}
+    if(this.chatBubbleTimer>0)this.chatBubbleTimer-=d;
     this.sparks=this.sparks.filter(s=>{s.life-=d;s.x+=s.vx*d;s.y+=s.vy*d;s.vy+=120*d;return s.life>0;});
     switch(this.state){
       case'idle':this.it+=d;if(this.it>2+Math.random()*3){this.it=0;this.moveTo(this.hx+(Math.random()-.5)*50,this.hy+(Math.random()-.5)*30,null);}this.doMove(d);break;
       case'move_to_build':this.doMove(d);break;
       case'building':
-        // Progress tracking (for live/mock runs)
-        if(this.progressMode==='live'){
-          const liveRate=this.targetProgress>=1?.95:.55;
-          this.progress=Math.min(this.targetProgress,this.progress+liveRate*d);
-          if(this.runStatus==='done'&&this.progress>=.999){this.progress=1;this.setState('complete');break;}
-        }
-        // Mining pause at mineral (6 seconds)
-        if(this.miningPause>0){
-          this.miningPause-=d;
-          // Sparks while mining
-          if(this.fr%4===0){
-            for(let i=0;i<2;i++)this.sparks.push({x:this.mx+(Math.random()-.5)*10,y:this.my-8,vx:(Math.random()-.5)*40,vy:-20-Math.random()*30,life:.12+Math.random()*.15});
-          }
-          // Ching sound periodically
-          this.chingTimer-=d;
-          if(this.chingTimer<=0){this.chingTimer=2.5;play('ching',.2);}
-          break;
-        }
-        // Mining movement: SCV goes between mineral and CC
-        if(!this.mcb){
-          if(this.miningTarget){
-            this.moveTo(this.mx,this.my,()=>{
-              this.miningPause=MINING_PAUSE; // pause 6s at mineral
-              this.chingTimer=0.5;
-              play('ching',.2);
-              this.miningTarget=false;
-            });
+        if(this.progress<1){
+          // === CONSTRUCTION PHASE: build the CC ===
+          if(this.progressMode==='live'){
+            const liveRate=this.targetProgress>=1?.95:.55;
+            this.progress=Math.min(this.targetProgress,this.progress+liveRate*d);
+            if(this.runStatus==='done'&&this.progress>=.999){this.progress=1;this.setState('complete');break;}
           } else {
-            this.moveTo(this.bx-15,this.by+10,()=>{
-              this.miningTarget=true;
-            });
+            this.progress+=BUILD_SPEED*d;
+            if(this.progress>=1){this.progress=1;this.setState('complete');break;}
           }
+          // SCV wanders on top of building while constructing
+          if(!this.mcb){
+            const cx=this.bx+(Math.random()-.5)*40;
+            const cy=this.by-10+(Math.random()-.5)*20;
+            this.moveTo(cx,cy,null);
+          }
+          this.doMove(d);
+          // Construction sparks
+          if(this.fr%3===0){const vd=Math.round(this.vDir)%16;for(let i=0;i<2;i++)this.sparks.push({x:this.x+((vd>=5&&vd<=11)?-20:20),y:this.y-2+Math.sin(this.fr*.6)*5,vx:(Math.random()-.5)*60,vy:-30-Math.random()*50,life:.15+Math.random()*.25});}
+          this.chingTimer-=d;
+          if(this.chingTimer<=0){this.chingTimer=2.5;play('ching',.28);}
+        } else {
+          // === MINING PHASE: CC built, mine minerals ===
+          // Live progress tracking for task completion
+          if(this.progressMode==='live'&&this.runStatus==='done'){
+            this.setState('complete');break;
+          }
+          // Mining pause at mineral (6 seconds)
+          if(this.miningPause>0){
+            this.miningPause-=d;
+            if(this.fr%4===0){
+              for(let i=0;i<2;i++)this.sparks.push({x:this.mx+(Math.random()-.5)*10,y:this.my-8,vx:(Math.random()-.5)*40,vy:-20-Math.random()*30,life:.12+Math.random()*.15});
+            }
+            this.chingTimer-=d;
+            if(this.chingTimer<=0){this.chingTimer=2.5;play('ching',.2);}
+            break;
+          }
+          // Mining movement: SCV goes between mineral and CC
+          if(!this.mcb){
+            if(this.miningTarget){
+              this.moveTo(this.mx,this.my,()=>{
+                this.miningPause=MINING_PAUSE;
+                this.chingTimer=0.5;
+                play('ching',.2);
+                this.miningTarget=false;
+              });
+            } else {
+              this.moveTo(this.bx-15,this.by+10,()=>{
+                this.miningTarget=true;
+              });
+            }
+          }
+          this.doMove(d);
         }
-        this.doMove(d);
         break;
       case'demolishing':
         this.demolishTimer-=d;
@@ -843,7 +921,7 @@ class Agent{
         if(this.ipw){this.pw-=d;if(this.pw<=0){this.ipw=false;if(Math.random()<.2){this.setState('idle_at_bldg');break;}this.pickPP();}}
         else{const m=this.doMove(d);if(!m&&!this.mcb){this.ipw=true;this.pw=1+Math.random()*3;}}
         break;
-      case'idle_at_bldg':this.it+=d;if(this.it>4+Math.random()*4){this.it=0;if(Math.random()<.6)this.startPatrol();}break;
+      case'idle_at_bldg':this.doMove(d);break; // stand near CC entrance
       // Manual command states
       case'manual_move':this.doMove(d);break;
       case'manual_idle':
@@ -888,14 +966,22 @@ class Agent{
       ctx.restore();
     }
     // Building sprite
-    const isWorking=this.runStatus==='running'||this.state==='building';
+    const isWorking=this.runStatus==='running'||(this.state==='building'&&this.progress>=1);
+    // Advance CC flicker animation
+    let flickerIdx=undefined;
+    if(isWorking){
+      this.ccFlickerT+=dt;
+      if(this.ccFlickerT>0.12){this.ccFlickerT-=0.12;}
+      const fi=Math.floor(time*8)%this.ccFlicker.length;
+      flickerIdx=this.ccFlicker[fi];
+    }
     const visibleProgress=this.state==='demolishing'?Math.max(this.progress,.12)*Math.max(0,this.demolishTimer/.42):this.progress;
     if(visibleProgress>0){
       ctx.save();
       if(this.state==='demolishing')ctx.globalAlpha=Math.max(.08,this.demolishTimer/.42);
-      drawBldg(sx,sy,this.bt,visibleProgress,isWorking);
+      drawBldg(sx,sy,this.bt,visibleProgress,isWorking,flickerIdx);
       ctx.restore();
-      const ln=this.progress>=1&&this.runStatus!=='running'?'커맨드센터 ✓':'커맨드센터';
+      const ln=this.progress>=1&&this.runStatus!=='running'?'CMD Center ✓':'CMD Center';
       label(sx,sy-58,ln,this.progress>=1?'#40ff40':'#f0a030',9);
     }
     if(this.progress>0)drawPbar(sx-24,sy+14,48,this.progress,this.progress>=1&&this.runStatus!=='running');
@@ -921,10 +1007,45 @@ class Agent{
       ctx.fillStyle=`rgba(255,220,68,${Math.min(1,s.life*4)})`;
       ctx.beginPath();ctx.arc(s.x-cam.x,s.y-cam.y,1.5,0,6.283);ctx.fill();
     });
-    // Name + status
+    // Name + ID + status
     label(ux,uy-50,this.name,'#4a9eff',9);
+    label(ux,uy-40,`(${this.id})`,'#80ff80',7);
     const status=agentStatusMeta(this);
     label(ux,uy+52,status.text,status.color,8);
+  }
+  // Chat bubble — drawn in separate pass so it's always on top
+  drawBubble(){
+    if(!this.chatBubble||this.chatBubbleTimer<=0)return;
+    const ux=this.x-cam.x,uy=this.y-cam.y;
+    ctx.save();
+    ctx.globalAlpha=0.92;
+    ctx.font='bold 11px Consolas,monospace';
+    const maxW=180;
+    const words=this.chatBubble.split(' ');
+    const lines=[];
+    let line='';
+    for(const w of words){
+      const test=line?line+' '+w:w;
+      if(ctx.measureText(test).width>maxW&&line){lines.push(line);line=w;}
+      else line=test;
+    }
+    if(line)lines.push(line);
+    const lineH=14;
+    const tw=Math.min(maxW,Math.max(...lines.map(l=>ctx.measureText(l).width)));
+    const bw=tw+16,bh=lines.length*lineH+10;
+    const bx=ux-bw/2,by=uy-70-bh;
+    ctx.fillStyle='rgba(0,0,0,0.65)';
+    ctx.strokeStyle='rgba(100,160,255,0.3)';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(bx+4,by);ctx.lineTo(bx+bw-4,by);ctx.quadraticCurveTo(bx+bw,by,bx+bw,by+4);ctx.lineTo(bx+bw,by+bh-4);ctx.quadraticCurveTo(bx+bw,by+bh,bx+bw-4,by+bh);ctx.lineTo(bx+4,by+bh);ctx.quadraticCurveTo(bx,by+bh,bx,by+bh-4);ctx.lineTo(bx,by+4);ctx.quadraticCurveTo(bx,by,bx+4,by);ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.65)';
+    ctx.beginPath();ctx.moveTo(ux-5,by+bh);ctx.lineTo(ux,by+bh+6);ctx.lineTo(ux+5,by+bh);ctx.fill();
+    ctx.fillStyle='#e0f0ff';
+    ctx.textAlign='center';
+    for(let i=0;i<lines.length;i++){
+      ctx.fillText(lines[i],ux,by+14+i*lineH);
+    }
+    ctx.restore();
   }
   select(){initAudio();play('select',.3);playV(SCV_VOICES[Math.random()*4|0]);}
   hit(wx,wy){return Math.abs(wx-this.x-8)<28&&Math.abs(wy-this.y-8)<35;}
@@ -955,10 +1076,20 @@ function selectAgent(a){
 // ═══════════════════════════════════════════════════════════════
 // BUILD SLOTS
 // ═══════════════════════════════════════════════════════════════
+// Build slots positioned above the mineral line (map fraction based)
+// Minerals are at ~x=0.46-0.75, y=0.85-0.93; gas at ~x=0.4, y=0.69
+// CC slots spread horizontally above minerals, below gas
 const slots=[];
-(function(){const sx=280,sy=180,cols=4,gx=200,gy=170;
-for(let r=0;r<3;r++)for(let c=0;c<cols;c++)slots.push({x:sx+c*gx+(r%2)*50,y:sy+r*gy,u:false});})();
-function nextSlot(){const s=slots.find(s=>!s.u);if(s){s.u=true;return s;}return{x:250+Math.random()*700,y:200+Math.random()*350,u:true};}
+function initSlots(){
+  slots.length=0;
+  const cols=4,rows=3;
+  const baseX=WORLD_W*0.22,baseY=WORLD_H*0.15;
+  const gx=WORLD_W*0.14,gy=WORLD_H*0.22;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)slots.push({x:baseX+c*gx,y:baseY+r*gy,u:false});
+}
+initSlots();
+window.addEventListener('resize',()=>{initSlots();});
+function nextSlot(){const s=slots.find(s=>!s.u);if(s){s.u=true;return s;}return{x:WORLD_W*0.35+Math.random()*WORLD_W*0.4,y:WORLD_H*0.4+Math.random()*WORLD_H*0.3,u:true};}
 
 // ═══════════════════════════════════════════════════════════════
 // MANAGEMENT
@@ -969,7 +1100,7 @@ function spawnAgent(options){
   const id=meta.id??nextId++;
   if(typeof id==='number'&&id>=nextId)nextId=id+1;
   const n=meta.name||`Agent-${String(id).padStart(2,'0')}`;
-  const sx=60+Math.random()*80,sy=620+Math.random()*60;
+  const sx=WORLD_W*0.45+Math.random()*WORLD_W*0.15,sy=WORLD_H*0.82+Math.random()*WORLD_H*0.06;
   const sl=nextSlot();const bt='command_center';
   const existing=findAgent(id);
   if(existing){
@@ -977,7 +1108,9 @@ function spawnAgent(options){
     return existing.id;
   }
   const a=new Agent(id,n,sx,sy,sl.x,sl.y,bt,meta);agents.push(a);
-  addCard(a);updCnt();play('click',.3);playV('scv_ready');return id;
+  addCard(a);updCnt();
+  if(!meta.silent){play('click',.3);playV('scv_ready');}
+  return id;
 }
 function startAllMock(){
   initAudio();
@@ -996,7 +1129,7 @@ function startAllMock(){
       const timer=setInterval(()=>{
         progress=Math.min(1,progress+.12);
         const phase=progress<.25?'planning':progress<.8?'coding':'summarizing';
-        a.applyRunPhase(phase,progress,phase==='coding'?'모의 코딩 중':'모의 작업 진행 중');
+        a.applyRunPhase(phase,progress,phase==='coding'?'Mock coding...':'Mock running...');
         if(progress>=1){
           clearInterval(timer);
           a.finishRun('done',{summary:`${a.name} mock run finished.`,filesChanged:[]});
@@ -1012,10 +1145,10 @@ async function removeAgent(id){
   // 2-C: cancel running task first, then cleanup worktree via backend
   if(liveMode){
     try{
-      updateLiveStatus(`${a.name} 제거 중...`);
+      updateLiveStatus(`Removing ${a.name}...`);
       await liveAPI.removeAgent(String(id));
     }catch(err){
-      updateLiveStatus(`제거 실패: ${err.message}`);
+      updateLiveStatus(`Remove failed: ${err.message}`);
       return;
     }
   }
@@ -1039,7 +1172,7 @@ async function removeAgent(id){
     updCnt();
     // Update status bar
     const running=agents.filter(a=>a.runStatus==='running').length;
-    if(liveMode)updateLiveStatus(running>0?`LIVE MODE · ${running}개 실행 중`:'LIVE MODE · 대기');
+    if(liveMode)updateLiveStatus(running>0?`LIVE · ${running} running`:'LIVE · Idle');
   },250);
 }
 async function resetAll(){
@@ -1156,7 +1289,7 @@ document.getElementById('btn-spawn').onclick=async ()=>{
     ensureRemoteAgent(agent);
     updCnt();
   }catch(err){
-    updateLiveStatus(`생성 실패: ${err.message}`);
+    updateLiveStatus(`Spawn failed: ${err.message}`);
   }
 };
 document.getElementById('btn-start').onclick=()=>{void startRunFromUI();};
@@ -1170,11 +1303,11 @@ document.getElementById('drawer-load-diff').onclick=async ()=>{
   if(liveMode&&liveAPI.getAgentDiff){
     try{
       const result=await liveAPI.getAgentDiff(String(drawerAgentId));
-      diffEl.textContent=result.diff||'(변경 없음)';
-    }catch(e){diffEl.textContent='(diff 로드 실패: '+e.message+')';}
+      diffEl.textContent=result.diff||'(No changes)';
+    }catch(e){diffEl.textContent='(Diff load failed: '+e.message+')';}
   } else {
     const a=findAgent(drawerAgentId);
-    diffEl.textContent=a&&a.filesChanged?.length?a.filesChanged.join('\n'):'(mock 모드 — diff 없음)';
+    diffEl.textContent=a&&a.filesChanged?.length?a.filesChanged.join('\n'):'(Mock mode — no diff)';
   }
 };
 
@@ -1236,8 +1369,8 @@ function renderWorld(){
     const mw=MAP_IMG_W*sc,mh=MAP_IMG_H*sc;
     ctx.drawImage(mapImg,(W-mw)/2,(H-mh)/2,mw,mh);
   } else {
-    if(!terrainImg)genTerrain();
-    ctx.drawImage(terrainImg,-cam.x,-cam.y);
+    ctx.fillStyle='#0a0a1a';
+    ctx.fillRect(0,0,W,H);
   }
   // Water ripple animation
   drawWaterRipple();
@@ -1250,7 +1383,10 @@ function renderWorld(){
     ctx.strokeRect(sx2-40,sy2-30,80,60);ctx.setLineDash([]);
   });
   // Agents sorted by Y
-  [...agents].sort((a,b)=>a.y-b.y).forEach(a=>a.draw());
+  const sortedAgents=[...agents].sort((a,b)=>a.y-b.y);
+  sortedAgents.forEach(a=>a.draw());
+  // Chat bubbles rendered last (always on top of everything)
+  sortedAgents.forEach(a=>a.drawBubble());
   // SC1 move markers
   updateAndDrawMoveMarkers(dt);
   // SC1 drag selection box
@@ -1279,6 +1415,8 @@ function renderGameToText(){
       id:a.id,
       name:a.name,
       engine:a.engine,
+      sessionKind:a.sessionKind,
+      locked:!!a.locked,
       state:a.state,
       runStatus:a.runStatus,
       runPhase:a.runPhase,
@@ -1306,12 +1444,11 @@ window.advanceTime=(ms)=>{
 };
 
 // ─── BOOT ────────────────────────────────────────────────────
-genTerrain();
 loadScvSprite();
 syncDrawer(); // initialize task detail panel
 requestAnimationFrame(loop);
 bootstrapLiveMode().catch(err=>{
-  document.getElementById('layer-copy').textContent=`부트 실패: ${err.message}`;
+  document.getElementById('layer-copy').textContent=`Boot failed: ${err.message}`;
   updateLiveStatus('BOOT FAILED');
 });
 </script>

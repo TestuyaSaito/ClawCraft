@@ -8,6 +8,11 @@ let mainWindow;
 let orchestrator;
 let wss;
 
+function registerBridgeSession(client) {
+  if (!orchestrator || !client) return null;
+  return orchestrator.registerSessionClient(client);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -62,8 +67,12 @@ function startBridge() {
       try { msg = JSON.parse(raw); } catch { ws.send(JSON.stringify({ type: 'error', error: 'invalid JSON' })); return; }
 
       try {
+        registerBridgeSession(msg.client);
         let result;
         switch (msg.action) {
+          case 'hello':
+            result = registerBridgeSession(msg.client || msg.payload || {});
+            break;
           case 'getState':
             result = orchestrator.getState();
             break;
