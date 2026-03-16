@@ -1287,13 +1287,20 @@ document.getElementById('btn-spawn').onclick=async ()=>{
     return;
   }
   const seedId=nextId;
-  const payload={id:seedId,name:`Agent-${String(seedId).padStart(2,'0')}`,engine,model:engine==='claude'?'default':'gpt-5'};
+  const modelMap={codex:'gpt-5',claude:'opus-5.4',gemini:'auto-gemini-3'};
+  const nameMap={codex:'Codex',claude:'Claude',gemini:'Gemini'};
+  const payload={id:seedId,name:`${nameMap[engine]||engine}-${String(seedId).padStart(2,'0')}`,engine,model:modelMap[engine]||'default'};
   try{
+    updateLiveStatus(`Creating ${payload.name}...`);
     const agent=await liveAPI.createAgent(payload);
     ensureRemoteAgent(agent);
     updCnt();
+    updateLiveStatus(`LIVE · ${payload.name} ready`);
   }catch(err){
     updateLiveStatus(`Spawn failed: ${err.message}`);
+    console.error('Agent spawn error:',err);
+    // Fallback: create locally if live fails
+    spawnAgent({engine,model:modelMap[engine]||'demo',name:payload.name});
   }
 };
 document.getElementById('btn-start').onclick=()=>{void startRunFromUI();};

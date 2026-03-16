@@ -185,9 +185,20 @@ function addCard(a){
   d.className='agent-card';d.id=`ac-${a.id}`;
   const badge=String(a.sessionKind||'').startsWith('codex-cli')?'<span class="agent-badge">YOU</span>':'';
   const removeButton=a.locked?'':`<button class="abtn-remove" title="Remove SCV">✕</button>`;
-  d.innerHTML=`<div class="card-top"><div class="aname">${a.name}${badge}<span style="color:#556;font-size:9px;font-weight:normal"> (${formatAgentIdTag(a.id)})</span></div>${removeButton}</div><div class="astatus">Idle</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">Waiting</div><div class="pbar"><div class="pfill"></div></div>`;
+  d.innerHTML=`<div class="card-top"><div class="aname">${a.name}${badge}<span style="color:#556;font-size:9px;font-weight:normal"> (${formatAgentIdTag(a.id)})</span></div><div style="display:flex;gap:2px">${removeButton}<button class="abtn-stop" title="Emergency stop" style="background:none;border:none;color:#664444;font-size:10px;cursor:pointer;display:none">⏹</button></div></div><div class="astatus">Idle</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">Waiting</div><div class="pbar"><div class="pfill"></div></div>`;
   const removeEl=d.querySelector('.abtn-remove');
   if(removeEl)removeEl.onclick=(e)=>{e.stopPropagation();void removeAgent(a.id);};
+  const stopEl=d.querySelector('.abtn-stop');
+  if(stopEl)stopEl.onclick=(e)=>{
+    e.stopPropagation();
+    const agent=findAgent(a.id);
+    if(agent&&agent.runId&&liveMode&&liveAPI.cancelRun){
+      liveAPI.cancelRun(agent.runId);
+      updateLiveStatus(`Stopped: ${agent.name}`);
+    }
+    stopWeld(a.id);
+    if(agent){agent.chatBubble='⚠ Stopped';agent.chatBubbleTimer=3;}
+  };
   d.onclick=(e)=>{
     if(!e.ctrlKey&&!e.metaKey){
       clearSelection();
@@ -223,6 +234,9 @@ function updateCard(id){
   const wsLabel=a.workspaceBranch?` · ${a.workspaceBranch}`:'';
   engineEl.textContent=fmtEngine(a.engine||'mock',a.model||'demo')+wsLabel;
   taskEl.textContent=a.taskTitle||'Waiting';
+  // Show/hide stop button based on run status
+  const stopBtn=c.querySelector('.abtn-stop');
+  if(stopBtn)stopBtn.style.display=a.runStatus==='running'?'inline':'none';
   fl.style.width=`${a.progress*100|0}%`;
   fl.className='pfill'+(a.progress>=1&&a.runStatus!=='running'?' complete':'');
   syncDrawer();
