@@ -151,6 +151,20 @@ async function startRunFromUI(){
     return;
   }
 
+  // Collaborate mode: leader decomposes → builders execute → leader reports
+  if(collabMode==='collaborate'&&targets.length>=2){
+    updateLiveStatus(`COLLAB · Leader planning, ${targets.length-1} builders standing by`);
+    try{
+      const plan=await liveAPI.startCollaboration({prompt,taskTitle:summarizePrompt(prompt)});
+      const done=plan.subtasks?.filter(s=>s.status==='done').length||0;
+      const total=plan.subtasks?.length||0;
+      updateLiveStatus(`COLLAB done · ${done}/${total} subtasks completed`);
+    }catch(err){
+      updateLiveStatus(`COLLAB failed: ${err.message}`);
+    }
+    return;
+  }
+
   if(collabMode==='relay'&&targets.length>=2){
     updateLiveStatus(`RELAY · ${targets.length} agents sequential start`);
     try{

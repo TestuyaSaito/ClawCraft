@@ -9,6 +9,7 @@ const { AgentRegistry } = require('./agent-registry');
 const { MessageBus } = require('./message-bus');
 const { PromptCompiler } = require('./prompt-compiler');
 const { ConversationRouter } = require('./conversation-router');
+const { TaskPlanner } = require('./task-planner');
 const { CodexAdapter } = require('../engines/codex-adapter');
 const { ClaudeAdapter } = require('../engines/claude-adapter');
 const { GeminiAdapter } = require('../engines/gemini-adapter');
@@ -38,7 +39,7 @@ function buildSessionAgent(payload = {}) {
     id: sessionId,
     name: payload.name || 'Codex CLI',
     engine: payload.engine || 'codex',
-    model: payload.model || 'gpt-5',
+    model: payload.model || 'gpt-5.4',
     role: payload.role || 'assistant',
     locked: payload.locked !== false,
     sessionKind: payload.sessionKind || 'codex-cli',
@@ -77,6 +78,7 @@ class AgentOrchestrator extends EventEmitter {
     this.activeRuns = new Map();
     this.agentsFile = path.join(this.projectRoot, '.clawcraft', 'agents.json');
     this.router = new ConversationRouter(this.registry, this.messageBus, this);
+    this.planner = new TaskPlanner(this.registry, this.messageBus);
     // Forward message bus events to UI
     this.messageBus.on('message', (msg) => {
       this.emitEvent({ type: 'agent.message', message: msg });
@@ -138,6 +140,109 @@ class AgentOrchestrator extends EventEmitter {
       parallelMode: 'git-worktree',
       collaborationModes: ['solo', 'shared-brief', 'relay'],
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // COLLABORATION MODE — Leader decomposes → Builders execute → Leader reports
+  // ═══════════════════════════════════════════════════════════════
+  async startCollaboration(payload) {
+    const { prompt, taskTitle } = payload;
+    const allAgents = this.listAgents().filter(a => !a.locked && a.status === 'idle');
+    if (allAgents.length < 2) throw new Error('협업에는 최소 2개 에이전트가 필요합니다 (1 leader + 1 builder).');
+
+    // First agent = leader, rest = builders
+    const leader = allAgents[0];
+    const builders = allAgents.slice(1);
+    const builderNames = builders.map(b => b.displayName || b.name);
+
+    // Create plan
+    const plan = this.planner.createPlan(prompt, leader, builders);
+    plan.status = 'planning';
+    this.emitEvent({ type: 'collab.started', plan, leader: { ...leader }, builders: builders.map(b => ({ ...b })) });
+
+    // Step 1: Leader decomposes
+    this.messageBus.send({ from: 'system', fromName: 'System', to: 'all', channel: 'radio', kind: 'system', text: `Leader ${leader.displayName || leader.name} is decomposing the task...` });
+
+    const planningPrompt = this.planner.buildPlanningPrompt(prompt, builderNames);
+    const leaderRun = await this.startRun({ agentId: String(leader.id), prompt: planningPrompt, taskTitle: 'Planning: ' + (taskTitle || prompt.slice(0, 40)), mode: 'shared-brief' });
+
+    // Wait for leader to finish planning
+    await new Promise((resolve, reject) => {
+      const handler = (event) => {
+        const eid = event.run?.id || event.runId;
+        if (eid !== leaderRun.id) return;
+        if (event.type === 'run.completed') { this.removeListener('event', handler); resolve(event); }
+        if (event.type === 'run.failed') { this.removeListener('event', handler); reject(new Error('Leader planning failed')); }
+        if (event.type === 'run.cancelled') { this.removeListener('event', handler); reject(new Error('Leader planning cancelled')); }
+      };
+      this.on('event', handler);
+    });
+
+    // Parse leader's output into subtasks
+    const leaderResult = this.runStore.getRun(leaderRun.id);
+    const subtasks = this.planner.parseLeaderOutput(leaderResult?.summary || '', plan);
+    plan.status = 'executing';
+    this.emitEvent({ type: 'collab.planned', plan, subtasks });
+
+    // Step 2: Start all builders in parallel
+    const builderPromises = builders.map(async (builder, i) => {
+      const subtask = subtasks[i];
+      if (!subtask || !subtask.description) return;
+      subtask.status = 'running';
+
+      this.messageBus.send({ from: leader.id, fromName: leader.displayName || leader.name, to: String(builder.id), channel: 'radio', kind: 'delegate', text: `@${builder.displayName || builder.name} ${subtask.description}` });
+
+      try {
+        const builderRun = await this.startRun({ agentId: String(builder.id), prompt: subtask.description, taskTitle: subtask.description.slice(0, 50), mode: 'shared-brief' });
+
+        // Wait for builder to finish
+        await new Promise((resolve, reject) => {
+          const handler = (event) => {
+            const eid = event.run?.id || event.runId;
+            if (eid !== builderRun.id) return;
+            if (event.type === 'run.completed') { this.removeListener('event', handler); resolve(event); }
+            if (event.type === 'run.failed') { this.removeListener('event', handler); reject(new Error(event.errorText || 'failed')); }
+            if (event.type === 'run.cancelled') { this.removeListener('event', handler); reject(new Error('cancelled')); }
+          };
+          this.on('event', handler);
+        });
+
+        const builderResult = this.runStore.getRun(builderRun.id);
+        this.planner.completeSubtask(plan, builder.id, builderResult?.summary || 'Done');
+        this.messageBus.send({ from: builder.id, fromName: builder.displayName || builder.name, to: String(leader.id), channel: 'radio', kind: 'report', text: `Task complete: ${subtask.description.slice(0, 60)}` });
+
+      } catch (err) {
+        this.planner.markSubtaskFailed(plan, builder.id, err.message);
+        this.messageBus.send({ from: builder.id, fromName: builder.displayName || builder.name, to: String(leader.id), channel: 'radio', kind: 'blocker', text: `Failed: ${err.message}` });
+      }
+    });
+
+    // Wait for ALL builders (parallel)
+    await Promise.allSettled(builderPromises);
+    this.emitEvent({ type: 'collab.builders_done', plan });
+
+    // Step 3: Leader summarizes
+    plan.status = 'reporting';
+    const reportPrompt = this.planner.buildReportPrompt(plan);
+    try {
+      const reportRun = await this.startRun({ agentId: String(leader.id), prompt: reportPrompt, taskTitle: 'Final report', mode: 'shared-brief' });
+      await new Promise((resolve, reject) => {
+        const handler = (event) => {
+          const eid = event.run?.id || event.runId;
+          if (eid !== reportRun.id) return;
+          if (event.type === 'run.completed') { this.removeListener('event', handler); resolve(event); }
+          if (event.type === 'run.failed') { this.removeListener('event', handler); resolve(event); }
+          if (event.type === 'run.cancelled') { this.removeListener('event', handler); resolve(event); }
+        };
+        this.on('event', handler);
+      });
+    } catch {}
+
+    plan.status = 'done';
+    this.emitEvent({ type: 'collab.completed', plan });
+    this.messageBus.send({ from: leader.id, fromName: leader.displayName || leader.name, to: 'all', channel: 'radio', kind: 'report', text: `All tasks completed. Final report delivered.` });
+
+    return plan;
   }
 
   // 4단계: Relay mode — chain agents sequentially, each gets previous output

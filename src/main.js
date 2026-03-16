@@ -48,6 +48,7 @@ function registerIpcHandlers() {
   });
   ipcMain.handle('run:cancel', async (_event, runId) => orchestrator.cancelRun(runId));
   ipcMain.handle('run:relay', async (_event, payload) => orchestrator.startRelay(payload));
+  ipcMain.handle('run:collaborate', async (_event, payload) => orchestrator.startCollaboration(payload));
   ipcMain.handle('workspace:diff', async (_event, agentId) => orchestrator.getAgentDiff(agentId));
   ipcMain.handle('message:send', async (_event, payload) => orchestrator.sendMessage(payload));
   ipcMain.handle('message:list', async (_event, agentId, limit) => orchestrator.listMessages(agentId, limit));
@@ -147,6 +148,9 @@ function startBridge() {
             break;
           case 'startRelay':
             result = await orchestrator.startRelay(msg.payload || {});
+            break;
+          case 'collaborate':
+            result = await orchestrator.startCollaboration(msg.payload || {});
             break;
           case 'getDiff':
             result = orchestrator.getAgentDiff(msg.agentId);

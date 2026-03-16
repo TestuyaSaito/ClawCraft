@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('clawcraft', {
   startRun: (payload) => ipcRenderer.invoke('run:start', payload),
   cancelRun: (runId) => ipcRenderer.invoke('run:cancel', runId),
   startRelay: (payload) => ipcRenderer.invoke('run:relay', payload),
+  startCollaboration: (payload) => ipcRenderer.invoke('run:collaborate', payload),
   getAgentDiff: (agentId) => ipcRenderer.invoke('workspace:diff', agentId),
   sendMessage: (payload) => ipcRenderer.invoke('message:send', payload),
   listMessages: (agentId, limit) => ipcRenderer.invoke('message:list', agentId, limit),
