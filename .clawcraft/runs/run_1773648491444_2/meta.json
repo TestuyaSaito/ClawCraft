@@ -1,0 +1,44 @@
+{
+  "id": "run_1773648491444_2",
+  "agentId": "2",
+  "agentName": "Agent-02",
+  "engine": "codex",
+  "model": "gpt-5",
+  "prompt": "안녕",
+  "taskTitle": "안녕",
+  "status": "done",
+  "phase": "done",
+  "progress": 1,
+  "summary": "Codex 작업이 완료되었습니다.",
+  "startedAt": "2026-03-16T08:08:11.444Z",
+  "endedAt": "2026-03-16T08:08:15.036Z",
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773648491444_2",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/worktrees/agent-2",
+  "workspaceStrategy": "git-worktree",
+  "branch": "agent/2",
+  "transcript": [
+    {
+      "source": "stdout",
+      "text": "{\"type\":\"thread.started\",\"thread_id\":\"019cf5b0-3400-71a3-b647-37be49c18412\"}",
+      "at": "2026-03-16T08:08:11.524Z"
+    },
+    {
+      "source": "stdout",
+      "text": "{\"type\":\"turn.started\"}",
+      "at": "2026-03-16T08:08:12.221Z"
+    },
+    {
+      "source": "stdout",
+      "text": "{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"안녕하세요. 무엇을 도와드릴까요?\"}}",
+      "at": "2026-03-16T08:08:15.029Z"
+    },
+    {
+      "source": "stdout",
+      "text": "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":8066,\"cached_input_tokens\":6912,\"output_tokens\":87}}",
+      "at": "2026-03-16T08:08:15.035Z"
+    }
+  ],
+  "filesChanged": [],
+  "errorText": "",
+  "phaseLabel": "엔진 응답 수신 중"
+}

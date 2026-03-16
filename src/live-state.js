@@ -9,22 +9,28 @@ let drawerAgentId=null;
 let liveConstraint='mock';
 let bootstrapped=false;
 
+function openSessionAgentIfPresent(){
+  if(drawerAgentId)return;
+  const sessionAgent=agents.find(a=>String(a.sessionKind||'').startsWith('codex-cli'));
+  if(sessionAgent)openTaskDrawer(sessionAgent.id);
+}
+
 function fmtEngine(engine,model){
   return model?`${engine.toUpperCase()} · ${model}`:engine.toUpperCase();
 }
 function findAgent(id){return agents.find(a=>String(a.id)===String(id));}
 function summarizePrompt(prompt){
-  if(!prompt)return'대기 중';
-  return prompt.replace(/\s+/g,' ').trim().slice(0,56)||'대기 중';
+  if(!prompt)return'Waiting';
+  return prompt.replace(/\s+/g,' ').trim().slice(0,56)||'Waiting';
 }
 function agentStatusMeta(a){
-  if(a.runStatus==='failed')return{text:'실패',color:'#ff7d7d'};
-  if(a.runStatus==='cancelled')return{text:'취소됨',color:'#c89d64'};
+  if(a.runStatus==='failed')return{text:'Failed',color:'#ff7d7d'};
+  if(a.runStatus==='cancelled')return{text:'Cancelled',color:'#c89d64'};
   if(a.runStatus==='running'){
-    const labelMap={planning:'기획 중',coding:'코딩 중',testing:'검증 중',summarizing:'정리 중',done:'완료'};
-    return{text:a.runLabel||labelMap[a.runPhase]||'작업 중',color:a.runPhase==='done'?'#40ff40':'#f0a030'};
+    const labelMap={planning:'Planning',coding:'Coding',testing:'Testing',summarizing:'Summarizing',done:'Done'};
+    return{text:a.runLabel||labelMap[a.runPhase]||'Working',color:a.runPhase==='done'?'#40ff40':'#f0a030'};
   }
-  const stMap={idle:'대기',move_to_build:'이동 중...',building:`건설 중 ${a.progress*100|0}%`,complete:'건설 완료!',patrol:'순찰 중',idle_at_bldg:'건물 근처 대기',manual_move:'이동 중...',manual_idle:'대기 중...',demolishing:'철거 중'};
+  const stMap={idle:'Idle',move_to_build:'Moving...',building:a.progress<1?`Building ${a.progress*100|0}%`:'Mining',complete:'Complete!',patrol:'Patrol',idle_at_bldg:'Standby',manual_move:'Moving...',manual_idle:'Waiting...',demolishing:'Demolishing'};
   const cMap={idle:'#666',move_to_build:'#4a9eff',building:'#f0a030',complete:'#40ff40',patrol:'#60aa60',idle_at_bldg:'#506050',manual_move:'#4a9eff',manual_idle:'#666',demolishing:'#ff7070'};
   return{text:stMap[a.state]||'',color:cMap[a.state]||'#888'};
 }
@@ -63,7 +69,7 @@ function applyRunToAgent(event){
     return;
   }
   if(event.type==='run.failed'){
-    agent.errorText=event.errorText||'실패';
+    agent.errorText=event.errorText||'Failed';
     agent.appendRunLog(`ERROR: ${agent.errorText}`);
     agent.finishRun('failed',event.run);
     return;
@@ -83,17 +89,16 @@ function handleLiveEvent(event){
   }
   if(event.type.startsWith('run.')){
     applyRunToAgent(event);
-    // Update status bar with active run count
     const running=agents.filter(a=>a.runStatus==='running').length;
     if(event.type==='run.started'){
-      updateLiveStatus(running>1?`LIVE MODE · ${running}개 에이전트 병렬 실행 중`:`LIVE MODE · ${event.agent?.name||'에이전트'} 실행 중`);
+      updateLiveStatus(running>1?`LIVE · ${running} agents running`:`LIVE · ${event.agent?.name||'agent'} running`);
     }
     if(event.type==='run.completed'){
-      updateLiveStatus(running>0?`LIVE MODE · ${running}개 실행 중`:'LIVE MODE · 대기');
+      updateLiveStatus(running>0?`LIVE · ${running} running`:'LIVE · Idle');
     }
-    if(event.type==='run.failed')updateLiveStatus(`실패 · ${event.errorText||'run failed'}`);
+    if(event.type==='run.failed')updateLiveStatus(`Failed · ${event.errorText||'run failed'}`);
     if(event.type==='run.cancelled'){
-      updateLiveStatus(running>0?`LIVE MODE · ${running}개 실행 중`:'LIVE MODE · 대기');
+      updateLiveStatus(running>0?`LIVE · ${running} running`:'LIVE · Idle');
     }
   }
 }
@@ -115,7 +120,7 @@ function startAllMock(){
       const timer=setInterval(()=>{
         progress=Math.min(1,progress+.12);
         const phase=progress<.25?'planning':progress<.8?'coding':'summarizing';
-        a.applyRunPhase(phase,progress,phase==='coding'?'모의 코딩 중':'모의 작업 진행 중');
+        a.applyRunPhase(phase,progress,phase==='coding'?'Mock coding...':'Mock running...');
         if(progress>=1){
           clearInterval(timer);
           a.finishRun('done',{summary:`${a.name} mock run finished.`,filesChanged:[]});
@@ -128,11 +133,11 @@ function startAllMock(){
 async function startRunFromUI(){
   const prompt=document.getElementById('task-prompt').value.trim();
   if(!prompt){
-    updateLiveStatus('프롬프트를 입력하세요');
+    updateLiveStatus('Enter a prompt');
     return;
   }
   if(!agents.length){
-    updateLiveStatus('에이전트를 먼저 추가하세요');
+    updateLiveStatus('Add agents first');
     return;
   }
   if(!liveMode){
@@ -144,13 +149,12 @@ async function startRunFromUI(){
   const selected=[...selectedAgents].map(id=>findAgent(id)).filter(Boolean);
   const targets=selected.length?selected:[...agents];
   if(!targets.length){
-    updateLiveStatus('시작할 에이전트가 없습니다');
+    updateLiveStatus('No agents to start');
     return;
   }
 
-  // 4단계: Relay mode — chain agents sequentially
   if(collabMode==='relay'&&targets.length>=2){
-    updateLiveStatus(`RELAY · ${targets.length}개 에이전트 순차 실행 시작`);
+    updateLiveStatus(`RELAY · ${targets.length} agents sequential start`);
     try{
       const results=await liveAPI.startRelay({
         agentIds:targets.map(t=>String(t.id)),
@@ -158,23 +162,22 @@ async function startRunFromUI(){
         taskTitle:summarizePrompt(prompt),
       });
       const done=results.filter(r=>r.status==='done').length;
-      updateLiveStatus(`RELAY 완료 · ${done}/${results.length} 성공`);
+      updateLiveStatus(`RELAY done · ${done}/${results.length} succeeded`);
     }catch(err){
-      updateLiveStatus(`RELAY 실패: ${err.message}`);
+      updateLiveStatus(`RELAY failed: ${err.message}`);
     }
     return;
   }
 
-  // Solo / Shared Brief — fire all starts in parallel
-  updateLiveStatus(`${targets.length}개 에이전트 시작 중... (${collabMode})`);
+  updateLiveStatus(`Starting ${targets.length} agents... (${collabMode})`);
   const results=await Promise.allSettled(targets.map(target=>
     liveAPI.startRun({
       agentId:String(target.id),
       prompt,
       taskTitle:summarizePrompt(prompt),
-      mode:collabMode, // 'solo' or 'shared-brief'
+      mode:collabMode,
     }).catch(err=>{
-      target.appendRunLog(`ERROR: ${err.message||'실행 실패'}`);
+      target.appendRunLog(`ERROR: ${err.message||'Run failed'}`);
       target.runStatus='failed';
       updateCard(target.id);
       throw err;
@@ -182,29 +185,62 @@ async function startRunFromUI(){
   ));
   const started=results.filter(r=>r.status==='fulfilled').length;
   const failed=results.filter(r=>r.status==='rejected').length;
-  if(started>0)updateLiveStatus(`LIVE MODE · ${started}개 에이전트 실행 중${failed?` (${failed}개 실패)`:''}`);
-  else updateLiveStatus('모든 에이전트 시작 실패');
+  if(started>0)updateLiveStatus(`LIVE · ${started} agents running${failed?` (${failed} failed)`:''}`);
+  else updateLiveStatus('All agents failed to start');
 }
 
 async function bootstrapLiveMode(){
   renderEngineList();
+  if(!bootstrapped){
+    bootstrapped=true;
+    // Spawn Gemini CLI
+    setTimeout(()=>{
+      const gid=spawnAgent({name:'Gemini CLI',engine:'gemini',model:'pro-1.5',role:'assistant',silent:true});
+      const g=findAgent(gid);
+      if(g){
+        g.runStatus='idle';g.runLabel='Connected';
+        g.runLogs.push('Gemini CLI connected via Desktop Terminal.');
+        g.runLogs.push('Ready to assist with your project!');
+        updateCard(g.id);
+      }
+    },100);
+  }
   if(!liveMode){
-    document.getElementById('layer-copy').textContent='브라우저 모드에서는 mock 작업만 실행됩니다.';
+    document.getElementById('layer-copy').textContent='Browser mode: mock tasks only.';
     updateLiveStatus('MOCK DEMO');
-    if(!bootstrapped){
-      bootstrapped=true;
-      setTimeout(()=>{spawnAgent({name:'Scout-01',engine:'mock',model:'demo'});setTimeout(()=>spawnAgent({name:'Miner-02',engine:'mock',model:'demo'}),200);setTimeout(()=>spawnAgent({name:'Builder-03',engine:'mock',model:'demo'}),400);},300);
-    }
+    setTimeout(()=>{
+      const sessionId=spawnAgent({
+        id:'codex-cli-demo',
+        name:'Codex CLI (Demo)',
+        engine:'codex',
+        model:'gpt-5',
+        role:'assistant',
+        locked:true,
+        sessionKind:'codex-cli-demo',
+        taskTitle:'CLI session preview',
+        silent:true,
+      });
+      const sessionAgent=findAgent(sessionId);
+      if(sessionAgent&&!sessionAgent.runLogs.length){
+        sessionAgent.runLogs.push('Demo-only session SCV. In Electron live mode this becomes the real CLI session ID.');
+        updateCard(sessionAgent.id);
+      }
+      spawnAgent({name:'Scout-01',engine:'mock',model:'demo',silent:true});
+      setTimeout(()=>spawnAgent({name:'Miner-02',engine:'mock',model:'demo',silent:true}),200);
+      setTimeout(()=>spawnAgent({name:'Builder-03',engine:'mock',model:'demo',silent:true}),400);
+      openSessionAgentIfPresent();
+    },500);
     return;
   }
   const state=await liveAPI.getState();
   liveConstraint=state.parallelMode||'git-worktree';
   (state.engines||[]).forEach((engine)=>engineStatuses.set(engine.id,engine));
   renderEngineList();
-  document.getElementById('layer-copy').textContent=`LIVE MODE: ${liveConstraint==='git-worktree'?'에이전트별 독립 worktree 병렬 실행':'단일 실행 모드'}`;
-  updateLiveStatus('LIVE MODE · 대기');
-  document.getElementById('btn-start').textContent='▶ 선택 에이전트 시작';
+  document.getElementById('layer-copy').textContent=`LIVE MODE: ${liveConstraint==='git-worktree'?'Independent worktree per agent':'Single run mode'}`;
+  updateLiveStatus('LIVE · Idle');
+  document.getElementById('btn-start').textContent='▶ Start Selected';
   state.agents.forEach((agent)=>ensureRemoteAgent(agent));
   updCnt();
+  openSessionAgentIfPresent();
   liveAPI.onEvent(handleLiveEvent);
 }

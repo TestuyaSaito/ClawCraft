@@ -12,6 +12,34 @@
 const WebSocket = require('ws');
 const BRIDGE_URL = 'ws://localhost:9477';
 
+function sanitizeToken(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'session';
+}
+
+function buildClientMeta() {
+  const threadId = process.env.CODEX_THREAD_ID || '';
+  const termSessionId = process.env.TERM_SESSION_ID || '';
+  const token = threadId || termSessionId || `pid-${process.pid}`;
+  const shortToken = String(token).slice(0, 8);
+  return {
+    sessionId: `codex-cli-${sanitizeToken(token)}`,
+    threadId,
+    termSessionId,
+    pid: process.pid,
+    name: 'Codex CLI',
+    engine: 'codex',
+    model: 'gpt-5',
+    role: 'assistant',
+    locked: true,
+    sessionKind: 'codex-cli',
+    taskTitle: `Talking with you in CLI ${shortToken}`,
+  };
+}
+
 const action = process.argv[2];
 if (!action) {
   console.log('Usage: node bridge.js <action> [args]');
@@ -36,9 +64,11 @@ try {
 
 const ws = new WebSocket(BRIDGE_URL);
 const msgId = Date.now().toString();
+const client = buildClientMeta();
 
 ws.on('open', () => {
   const msg = { id: msgId, action };
+  msg.client = client;
   if (payload) msg.payload = payload;
   if (agentId) msg.agentId = agentId;
   if (runId) msg.runId = runId;

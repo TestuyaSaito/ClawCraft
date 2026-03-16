@@ -1,0 +1,4 @@
+{"source":"stdout","text":"{\"type\":\"thread.started\",\"thread_id\":\"019cf5c1-063a-7990-9d76-45ce65188aba\"}","at":"2026-03-16T08:26:33.919Z"}
+{"source":"stdout","text":"{\"type\":\"turn.started\"}","at":"2026-03-16T08:26:34.548Z"}
+{"source":"stdout","text":"{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"안녕하세요. 무엇을 도와드릴까요?\"}}","at":"2026-03-16T08:26:38.552Z"}
+{"source":"stdout","text":"{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":8116,\"cached_input_tokens\":7040,\"output_tokens\":124}}","at":"2026-03-16T08:26:38.559Z"}

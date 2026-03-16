@@ -8,6 +8,7 @@ const { WorkspaceManager } = require('./workspace-manager');
 const { AgentRegistry } = require('./agent-registry');
 const { MessageBus } = require('./message-bus');
 const { PromptCompiler } = require('./prompt-compiler');
+const { ConversationRouter } = require('./conversation-router');
 const { CodexAdapter } = require('../engines/codex-adapter');
 const { ClaudeAdapter } = require('../engines/claude-adapter');
 const { GeminiAdapter } = require('../engines/gemini-adapter');
@@ -75,7 +76,8 @@ class AgentOrchestrator extends EventEmitter {
     this.agents = this.registry.agents;
     this.activeRuns = new Map();
     this.agentsFile = path.join(this.projectRoot, '.clawcraft', 'agents.json');
-    // Forward message bus events
+    this.router = new ConversationRouter(this.registry, this.messageBus, this);
+    // Forward message bus events to UI
     this.messageBus.on('message', (msg) => {
       this.emitEvent({ type: 'agent.message', message: msg });
     });
@@ -444,6 +446,8 @@ class AgentOrchestrator extends EventEmitter {
       run: this.serializeRun(run),
       agent: agent ? { ...agent } : null,
     });
+    // Process inbox — reply to pending messages
+    this.router.processInbox(String(run.agentId)).catch(() => {});
   }
 
   failRun(runId, errorText) {
@@ -521,6 +525,30 @@ class AgentOrchestrator extends EventEmitter {
   }
 
   // 5단계: get git diff for an agent's worktree
+  // Build context pack for a target agent (their recent work)
+  getAgentContextPack(agentId) {
+    const agent = this.registry.get(agentId);
+    if (!agent) return '';
+    const summary = this.runStore.getLatestSummaryForAgent(agentId);
+    const transcript = this.runStore.getRecentTranscriptForAgent(agentId, 15);
+    const diff = this.getAgentDiff(agentId);
+    let pack = `## ${agent.displayName || agent.name}'s recent work\n`;
+    if (summary) pack += `Summary: ${summary.slice(0, 400)}\n\n`;
+    if (transcript) pack += `Recent log:\n${transcript.slice(0, 800)}\n\n`;
+    if (diff.files?.length) pack += `Changed files: ${diff.files.slice(0, 10).join(', ')}\n\n`;
+    return pack;
+  }
+
+  // Send a message through the conversation router (with auto-reply)
+  async sendMessage(payload) {
+    return this.router.route(payload);
+  }
+
+  // List recent messages for an agent
+  listMessages(agentId, limit = 15) {
+    return this.messageBus.getConversationFor(agentId, limit);
+  }
+
   getAgentDiff(agentId) {
     const { execSync } = require('child_process');
     const agent = this.agents.get(String(agentId));

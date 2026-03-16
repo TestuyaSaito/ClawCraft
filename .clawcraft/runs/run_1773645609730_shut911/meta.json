@@ -1,0 +1,22 @@
+{
+  "id": "run_1773645609730_shut911",
+  "agentId": "shut911",
+  "agentName": "ShutdownCheck",
+  "engine": "ignoreterm",
+  "model": "test",
+  "prompt": "x",
+  "taskTitle": "x",
+  "status": "failed",
+  "phase": "failed",
+  "progress": 0.08,
+  "summary": "실패",
+  "startedAt": "2026-03-16T07:20:09.730Z",
+  "endedAt": "2026-03-16T07:20:09.735Z",
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773645609730_shut911",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/worktrees/agent-shut911",
+  "workspaceStrategy": "git-worktree",
+  "branch": "agent/shut911",
+  "transcript": [],
+  "filesChanged": [],
+  "errorText": "프로세스 종료(code=null, signal=SIGTERM)"
+}

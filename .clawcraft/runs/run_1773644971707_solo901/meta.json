@@ -1,0 +1,22 @@
+{
+  "id": "run_1773644971707_solo901",
+  "agentId": "solo901",
+  "agentName": "SoloCheck",
+  "engine": "capture",
+  "model": "test",
+  "prompt": "## Recent Agent Activity\n- [Prev] shared summary\n\n---\n\n## Task\nbase prompt",
+  "taskTitle": "t",
+  "status": "done",
+  "phase": "done",
+  "progress": 1,
+  "summary": "SoloCheck 작업이 완료되었습니다.",
+  "startedAt": "2026-03-16T07:09:31.707Z",
+  "endedAt": "2026-03-16T07:09:31.791Z",
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773644971707_solo901",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/worktrees/agent-solo901",
+  "workspaceStrategy": "git-worktree",
+  "branch": "agent/solo901",
+  "transcript": [],
+  "filesChanged": [],
+  "errorText": ""
+}

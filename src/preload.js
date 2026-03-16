@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('clawcraft', {
   cancelRun: (runId) => ipcRenderer.invoke('run:cancel', runId),
   startRelay: (payload) => ipcRenderer.invoke('run:relay', payload),
   getAgentDiff: (agentId) => ipcRenderer.invoke('workspace:diff', agentId),
+  sendMessage: (payload) => ipcRenderer.invoke('message:send', payload),
+  listMessages: (agentId, limit) => ipcRenderer.invoke('message:list', agentId, limit),
+  getAgentContext: (agentId) => ipcRenderer.invoke('agent:context', agentId),
   onEvent: (handler) => {
     const wrapped = (_event, payload) => handler(payload);
     ipcRenderer.on('orchestrator:event', wrapped);

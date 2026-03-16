@@ -128,6 +128,14 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
     </div>
   </div>
 </aside>
+<div id="inline-chat" style="display:none;position:fixed;z-index:25;background:rgba(0,8,20,0.9);border:1px solid #2a5a9a;border-radius:4px;padding:4px 6px">
+  <div style="display:flex;gap:4px;align-items:center">
+    <span id="inline-chat-name" style="color:#4a9eff;font-size:9px;font-weight:bold;white-space:nowrap"></span>
+    <input id="inline-chat-input" style="width:220px;height:20px;background:rgba(4,16,34,.95);border:1px solid #21497d;color:#b8dcff;padding:0 6px;font-size:10px;font-family:inherit;border-radius:2px;outline:none" placeholder="메시지 입력..." />
+    <button id="inline-chat-send" class="btn" style="padding:2px 8px;font-size:9px;height:20px">전송</button>
+    <button id="inline-chat-close" style="background:none;border:none;color:#666;font-size:12px;cursor:pointer;line-height:1">×</button>
+  </div>
+</div>
 
 <script src="audio.js"></script>
 <script src="ui-panels.js"></script>
@@ -867,8 +875,6 @@ class Agent{
           this.doMove(d);
           // Construction sparks
           if(this.fr%3===0){const vd=Math.round(this.vDir)%16;for(let i=0;i<2;i++)this.sparks.push({x:this.x+((vd>=5&&vd<=11)?-20:20),y:this.y-2+Math.sin(this.fr*.6)*5,vx:(Math.random()-.5)*60,vy:-30-Math.random()*50,life:.15+Math.random()*.25});}
-          this.chingTimer-=d;
-          if(this.chingTimer<=0){this.chingTimer=2.5;play('ching',.28);}
         } else {
           // === MINING PHASE: CC built, mine minerals ===
           // Live progress tracking for task completion
@@ -881,8 +887,6 @@ class Agent{
             if(this.fr%4===0){
               for(let i=0;i<2;i++)this.sparks.push({x:this.mx+(Math.random()-.5)*10,y:this.my-8,vx:(Math.random()-.5)*40,vy:-20-Math.random()*30,life:.12+Math.random()*.15});
             }
-            this.chingTimer-=d;
-            if(this.chingTimer<=0){this.chingTimer=2.5;play('ching',.2);}
             break;
           }
           // Mining movement: SCV goes between mineral and CC
@@ -890,8 +894,6 @@ class Agent{
             if(this.miningTarget){
               this.moveTo(this.mx,this.my,()=>{
                 this.miningPause=MINING_PAUSE;
-                this.chingTimer=0.5;
-                play('ching',.2);
                 this.miningTarget=false;
               });
             } else {
@@ -1096,7 +1098,7 @@ function nextSlot(){const s=slots.find(s=>!s.u);if(s){s.u=true;return s;}return{
 // ═══════════════════════════════════════════════════════════════
 function spawnAgent(options){
   const meta=typeof options==='string'?{name:options}:options||{};
-  initAudio();
+  if(!meta.silent)initAudio();
   const id=meta.id??nextId++;
   if(typeof id==='number'&&id>=nextId)nextId=id+1;
   const n=meta.name||`Agent-${String(id).padStart(2,'0')}`;
@@ -1195,6 +1197,7 @@ canvas.addEventListener('mouseenter',()=>{cursorOnCanvas=true;});
 canvas.addEventListener('mouseleave',()=>{cursorOnCanvas=false;});
 
 canvas.addEventListener('mousedown',e=>{
+  if(!audioUnlocked){audioUnlocked=true;initAudio();}
   mouse.down=true;mouse.px=e.clientX;mouse.py=e.clientY;mouse.button=e.button;
   if(e.button===0){
     const sx=e.clientX;
@@ -1277,6 +1280,7 @@ canvas.addEventListener('mouseup',e=>{
 
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 document.getElementById('btn-spawn').onclick=async ()=>{
+  if(!audioUnlocked){audioUnlocked=true;initAudio();}
   const engine=document.getElementById('agent-engine').value;
   if(!liveMode){
     spawnAgent({engine,model:engine==='claude'?'demo-opus':'demo'});
@@ -1310,6 +1314,62 @@ document.getElementById('drawer-load-diff').onclick=async ()=>{
     diffEl.textContent=a&&a.filesChanged?.length?a.filesChanged.join('\n'):'(Mock mode — no diff)';
   }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// INLINE CHAT — SCV double-click opens compact input
+// ═══════════════════════════════════════════════════════════════
+let inlineChatAgentId=null;
+function openInlineChat(agent,screenX,screenY){
+  inlineChatAgentId=String(agent.id);
+  const el=document.getElementById('inline-chat');
+  const input=document.getElementById('inline-chat-input');
+  document.getElementById('inline-chat-name').textContent=agent.displayName||agent.name;
+  el.style.left=Math.min(screenX,W-280)+'px';
+  el.style.top=Math.min(screenY+20,H-30)+'px';
+  el.style.display='block';
+  input.value='';
+  setTimeout(()=>input.focus(),50);
+}
+function closeInlineChat(){
+  inlineChatAgentId=null;
+  document.getElementById('inline-chat').style.display='none';
+}
+async function sendInlineChatMessage(){
+  if(!inlineChatAgentId)return;
+  const input=document.getElementById('inline-chat-input');
+  const text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  const a=findAgent(inlineChatAgentId);
+  if(!a)return;
+  if(liveMode&&liveAPI.sendMessage){
+    await liveAPI.sendMessage({from:'user',fromName:'You',to:inlineChatAgentId,channel:'radio',kind:'chat',text});
+  } else {
+    a.chatBubble=text.slice(0,60);a.chatBubbleTimer=4;
+  }
+}
+document.getElementById('inline-chat-send').onclick=sendInlineChatMessage;
+document.getElementById('inline-chat-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendInlineChatMessage();});
+document.getElementById('inline-chat-close').onclick=closeInlineChat;
+
+canvas.addEventListener('dblclick',e=>{
+  const wx=e.clientX+cam.x;
+  const wy=e.clientY-44+cam.y;
+  const hitAgent=agents.find(a=>a.hit(wx,wy));
+  if(hitAgent){
+    openInlineChat(hitAgent,e.clientX,e.clientY-44);
+    return;
+  }
+  const hitBldg=agents.find(a=>a.hitBldg(wx,wy));
+  if(hitBldg&&hitBldg.runStatus==='running'){
+    if(liveMode&&liveAPI.cancelRun&&hitBldg.runId){
+      liveAPI.cancelRun(hitBldg.runId);
+      updateLiveStatus(`Emergency stop: ${hitBldg.name}`);
+    }
+    stopWeld(hitBldg.id);
+    hitBldg.chatBubble='⚠ Stopped';hitBldg.chatBubbleTimer=3;
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════
 // MINIMAP

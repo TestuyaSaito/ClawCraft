@@ -7,6 +7,7 @@ const MUSIC_FILES=['../assets/sounds/music/terran1.mp3','../assets/sounds/music/
 const SCV_VOICES=['scv_ready','scv_yessir','scv_orders','scv_rightaway','scv_affirmative','scv_ireadyou'];
 
 let audioCtx=null,soundsOk=false,sounds={},audioEls={},bgMusic=null,bgPlaying=false,musicIdx=0;
+let audioUnlocked=false; // true after first user interaction
 
 function initAudio(){
   if(audioCtx)return;
@@ -94,14 +95,14 @@ function mkSelect(){
   for(let i=0;i<len;i++){const t=i/sr;d[i]=Math.sin(6.283*(600+t*2000)*t)*Math.exp(-t*25)*.2;}return buf;
 }
 function play(name,vol){
-  if(!soundsOk||!sounds[name])return null;
+  if(!audioUnlocked||!soundsOk||!sounds[name])return null;
   const s=audioCtx.createBufferSource(),g=audioCtx.createGain();
   g.gain.value=vol||1;s.buffer=sounds[name];s.connect(g);g.connect(audioCtx.destination);s.start(0);return s;
 }
 let vq=[],vp=false,vpCurrent=null;
-function playV(n){vq.push(n);if(!vp)drainV();}
+function playV(n){if(!audioUnlocked)return;vq.push(n);if(!vp)drainV();}
 // Play voice immediately, cancel any queued/playing voices
-function playVNow(n){
+function playVNow(n){if(!audioUnlocked)return;
   vq=[];vp=false;
   // Stop currently playing voice
   if(vpCurrent){try{vpCurrent.pause();vpCurrent.currentTime=0;}catch(e){}}

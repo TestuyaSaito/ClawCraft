@@ -1,0 +1,28 @@
+{
+  "id": "run_1773645609899_relay911",
+  "agentId": "relay911",
+  "agentName": "R1",
+  "engine": "fakefast",
+  "model": "test",
+  "prompt": "relay test",
+  "taskTitle": "relay",
+  "status": "done",
+  "phase": "done",
+  "progress": 1,
+  "summary": "ok",
+  "startedAt": "2026-03-16T07:20:09.899Z",
+  "endedAt": "2026-03-16T07:20:09.930Z",
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773645609899_relay911",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/worktrees/agent-relay911",
+  "workspaceStrategy": "git-worktree",
+  "branch": "agent/relay911",
+  "transcript": [
+    {
+      "source": "stdout",
+      "text": "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"ok\"}",
+      "at": "2026-03-16T07:20:09.929Z"
+    }
+  ],
+  "filesChanged": [],
+  "errorText": ""
+}

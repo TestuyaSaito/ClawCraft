@@ -1,0 +1,22 @@
+{
+  "id": "run_1773644329129_993",
+  "agentId": "993",
+  "agentName": "WaitExit",
+  "engine": "sleepy",
+  "model": "test",
+  "prompt": "noop",
+  "taskTitle": "noop",
+  "status": "failed",
+  "phase": "failed",
+  "progress": 0.08,
+  "summary": "실패",
+  "startedAt": "2026-03-16T06:58:49.129Z",
+  "endedAt": "2026-03-16T06:58:49.135Z",
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773644329129_993",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/worktrees/agent-993",
+  "workspaceStrategy": "git-worktree",
+  "branch": "agent/993",
+  "transcript": [],
+  "filesChanged": [],
+  "errorText": "프로세스 종료(code=null, signal=SIGTERM)"
+}

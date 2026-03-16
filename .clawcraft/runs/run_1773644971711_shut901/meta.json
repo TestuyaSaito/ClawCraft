@@ -1,0 +1,22 @@
+{
+  "id": "run_1773644971711_shut901",
+  "agentId": "shut901",
+  "agentName": "ShutdownCheck",
+  "engine": "ignoreterm",
+  "model": "test",
+  "prompt": "## Recent Agent Activity\n- [Prev] shared summary\n\n---\n\n## Task\nx",
+  "taskTitle": "x",
+  "status": "queued",
+  "phase": "queued",
+  "progress": 0,
+  "summary": "",
+  "startedAt": "2026-03-16T07:09:31.711Z",
+  "endedAt": null,
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773644971711_shut901",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/worktrees/agent-shut901",
+  "workspaceStrategy": "git-worktree",
+  "branch": "agent/shut901",
+  "transcript": [],
+  "filesChanged": [],
+  "errorText": ""
+}

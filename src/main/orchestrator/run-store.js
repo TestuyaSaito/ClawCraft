@@ -69,6 +69,31 @@ class RunStore {
     const serializable = { ...run, process: undefined, progressTimer: undefined };
     fs.writeFileSync(path.join(run.artifactsDir, 'meta.json'), JSON.stringify(serializable, null, 2));
   }
+
+  // Helpers for conversation context
+  getRecentRunsForAgent(agentId, limit = 3) {
+    return [...this.runs.values()]
+      .filter(r => String(r.agentId) === String(agentId))
+      .sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''))
+      .slice(0, limit)
+      .map(r => ({ id: r.id, status: r.status, phase: r.phase, taskTitle: r.taskTitle, summary: (r.summary || '').slice(0, 300) }));
+  }
+
+  getLatestSummaryForAgent(agentId) {
+    const runs = this.getRecentRunsForAgent(agentId, 1);
+    return runs[0]?.summary || '';
+  }
+
+  getRecentTranscriptForAgent(agentId, lines = 20) {
+    const runs = [...this.runs.values()]
+      .filter(r => String(r.agentId) === String(agentId) && r.transcript?.length)
+      .sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''));
+    if (!runs.length) return '';
+    return runs[0].transcript
+      .slice(-lines)
+      .map(t => `[${t.source}] ${t.text}`)
+      .join('\n');
+  }
 }
 
 module.exports = { RunStore };

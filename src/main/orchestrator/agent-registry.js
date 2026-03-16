@@ -16,22 +16,26 @@ class AgentRegistry {
       Object.assign(existing, this._patch(payload));
       return existing;
     }
+    const name = payload.name || `Agent-${id}`;
+    const callSign = payload.callSign || name.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-|-$/g, '');
     const record = {
       id,
       sessionId: payload.sessionId || id,
-      name: payload.name || `Agent-${id}`,
+      name,
+      displayName: payload.displayName || name,
+      callSign,
+      aliases: payload.aliases || [name, callSign, `@${callSign}`, `@${name}`],
       engine: payload.engine || 'codex',
       model: payload.model || 'gpt-5',
-      role: payload.role || 'builder',        // builder | reviewer | leader | assistant
+      role: payload.role || 'builder',
       teamId: payload.teamId || DEFAULT_TEAM,
       relation: 'teammate',
       locked: !!payload.locked,
       sessionKind: payload.sessionKind || '',
       taskTitle: payload.taskTitle || 'Waiting',
-      // Presence
-      status: 'idle',          // idle | running | failed | cancelled
+      status: 'idle',
       currentRunId: null,
-      slot: payload.slot || null, // build slot position (set by renderer)
+      slot: payload.slot || null,
       workspace: payload.workspace || null,
     };
     this.agents.set(id, record);
@@ -52,6 +56,30 @@ class AgentRegistry {
 
   listTeam(teamId) {
     return this.list().filter(a => a.teamId === (teamId || DEFAULT_TEAM));
+  }
+
+  // Resolve @mention or name to agent
+  resolveByMention(mention) {
+    const clean = mention.replace(/^@/, '').trim().toLowerCase();
+    for (const agent of this.agents.values()) {
+      if (agent.aliases && agent.aliases.some(a => a.toLowerCase() === clean)) return agent;
+      if (agent.callSign === clean) return agent;
+      if (agent.name.toLowerCase() === clean) return agent;
+      if (agent.displayName && agent.displayName.toLowerCase() === clean) return agent;
+    }
+    return null;
+  }
+
+  // Extract all @mentions from text and resolve them
+  extractMentions(text) {
+    const mentions = [];
+    const regex = /@([\w가-힣.-]+)/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const agent = this.resolveByMention(match[1]);
+      if (agent) mentions.push({ raw: match[0], name: match[1], agentId: agent.id, agent });
+    }
+    return mentions;
   }
 
   // Get structured world state from one agent's perspective

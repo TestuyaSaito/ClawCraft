@@ -60,6 +60,13 @@ async function callGeminiAPI(apiKey,prompt,agent){
   return text;
 }
 
+// Detect if prompt requires heavy work (coding/building/searching) vs simple chat
+function isHeavyTask(prompt){
+  const p=prompt.toLowerCase();
+  const heavy=/\b(code|coding|build|make|create|develop|program|implement|write|fix|debug|refactor|deploy|search|scrape|crawl|draw|render|generate|design|download|install|compile|test|run|execute|script|api|database|server|app|website|function|class|module)\b/;
+  return heavy.test(p);
+}
+
 // Send prompt to individual agent
 async function sendAgentPrompt(){
   if(!drawerAgentId)return;
@@ -70,9 +77,9 @@ async function sendAgentPrompt(){
   const a=findAgent(drawerAgentId);
   if(!a)return;
 
-  // Check if this agent can use real Gemini API (browser mode)
   const apiKey=document.getElementById('api-key-input')?.value?.trim();
   const isGeminiAgent=a.engine==='gemini';
+  const needsMining=isHeavyTask(prompt);
 
   if(liveMode){
     try{
@@ -91,48 +98,69 @@ async function sendAgentPrompt(){
       updateCard(a.id);
     }
   } else if(isGeminiAgent&&apiKey){
-    // Real Gemini API call from browser
-    a.beginLiveRun({
-      id:`gemini-${Date.now()}-${a.id}`,
-      prompt,
-      taskTitle:summarizePrompt(prompt),
-      progress:.08,
-      phase:'planning',
-    });
+    if(needsMining){
+      // Heavy task: start mining animation + call API
+      a.beginLiveRun({
+        id:`gemini-${Date.now()}-${a.id}`,
+        prompt,
+        taskTitle:summarizePrompt(prompt),
+        progress:.08,
+        phase:'planning',
+      });
+    }
     updateLiveStatus(`${a.name} calling Gemini...`);
+    a.taskTitle=summarizePrompt(prompt);
+    a.runPrompt=prompt;
     try{
-      a.applyRunPhase('planning',0.1,'Sending request...');
+      if(!needsMining){a.appendRunLog(`> ${prompt}`);}
       const response=await callGeminiAPI(apiKey,prompt,a);
-      a.applyRunPhase('coding',0.6,'Processing response...');
-      a.appendRunLog(response);
-      a.applyRunPhase('summarizing',0.9,'Finalizing...');
-      a.finishRun('done',{summary:response.slice(0,200),filesChanged:[]});
+      if(needsMining){
+        a.applyRunPhase('coding',0.6,'Processing...');
+        a.appendRunLog(response);
+        a.applyRunPhase('summarizing',0.9,'Finalizing...');
+        a.finishRun('done',{summary:response.slice(0,200),filesChanged:[]});
+      } else {
+        // Simple chat: just show bubble, no mining
+        a.appendRunLog(response);
+        a.chatBubble=response.replace(/```[\s\S]*?```/g,'').replace(/[#*_`]/g,'').trim().slice(0,120)+(response.length>120?'...':'');
+        a.chatBubbleTimer=999;
+      }
       updateLiveStatus(`${a.name} done`);
     }catch(err){
       a.appendRunLog(`ERROR: ${err.message}`);
-      a.finishRun('failed',{errorText:err.message});
+      if(needsMining)a.finishRun('failed',{errorText:err.message});
       updateLiveStatus(`Gemini failed: ${err.message.slice(0,60)}`);
     }
   } else {
     // Mock mode
-    a.beginLiveRun({
-      id:`mock-${Date.now()}-${a.id}`,
-      prompt,
-      taskTitle:summarizePrompt(prompt),
-      progress:.08,
-      phase:'planning',
-    });
-    a.appendRunLog(`MOCK START: ${prompt}`);
-    let progress=.08;
-    const timer=setInterval(()=>{
-      progress=Math.min(1,progress+.12);
-      const phase=progress<.25?'planning':progress<.8?'coding':'summarizing';
-      a.applyRunPhase(phase,progress,phase==='coding'?'Mock coding...':'Mock running...');
-      if(progress>=1){
-        clearInterval(timer);
-        a.finishRun('done',{summary:`${a.name} mock run finished.`,filesChanged:[]});
-      }
-    },500);
+    if(needsMining){
+      // Heavy task: mining animation
+      a.beginLiveRun({
+        id:`mock-${Date.now()}-${a.id}`,
+        prompt,
+        taskTitle:summarizePrompt(prompt),
+        progress:.08,
+        phase:'planning',
+      });
+      a.appendRunLog(`MOCK START: ${prompt}`);
+      let progress=.08;
+      const timer=setInterval(()=>{
+        progress=Math.min(1,progress+.12);
+        const phase=progress<.25?'planning':progress<.8?'coding':'summarizing';
+        a.applyRunPhase(phase,progress,phase==='coding'?'Mock coding...':'Mock running...');
+        if(progress>=1){
+          clearInterval(timer);
+          a.finishRun('done',{summary:`${a.name} mock run finished.`,filesChanged:[]});
+        }
+      },500);
+    } else {
+      // Simple chat: just show mock response as bubble
+      a.taskTitle=summarizePrompt(prompt);
+      a.runPrompt=prompt;
+      a.appendRunLog(`> ${prompt}`);
+      a.chatBubble=`[Mock] "${prompt.slice(0,40)}" — OK!`;
+      a.chatBubbleTimer=999;
+    }
   }
   updateCard(a.id);
   syncDrawer();

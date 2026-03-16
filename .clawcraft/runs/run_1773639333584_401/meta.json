@@ -1,0 +1,22 @@
+{
+  "id": "run_1773639333584_401",
+  "agentId": "401",
+  "agentName": "Race",
+  "engine": "fake",
+  "model": "gpt-5",
+  "prompt": "ignored",
+  "taskTitle": "race",
+  "status": "queued",
+  "phase": "queued",
+  "progress": 0,
+  "summary": "",
+  "startedAt": "2026-03-16T05:35:33.584Z",
+  "endedAt": null,
+  "artifactsDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/runs/run_1773639333584_401",
+  "workspaceDir": "/Users/jayhyeoklim/Desktop/개발/ClawCraft/scv-agent-animation/.clawcraft/worktrees/agent-401",
+  "workspaceStrategy": "git-worktree",
+  "branch": "agent/401",
+  "transcript": [],
+  "filesChanged": [],
+  "errorText": ""
+}

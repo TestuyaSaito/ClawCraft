@@ -40,6 +40,9 @@ function registerIpcHandlers() {
   ipcMain.handle('run:cancel', async (_event, runId) => orchestrator.cancelRun(runId));
   ipcMain.handle('run:relay', async (_event, payload) => orchestrator.startRelay(payload));
   ipcMain.handle('workspace:diff', async (_event, agentId) => orchestrator.getAgentDiff(agentId));
+  ipcMain.handle('message:send', async (_event, payload) => orchestrator.sendMessage(payload));
+  ipcMain.handle('message:list', async (_event, agentId, limit) => orchestrator.listMessages(agentId, limit));
+  ipcMain.handle('agent:context', async (_event, agentId) => orchestrator.getAgentContextPack(agentId));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -93,6 +96,15 @@ function startBridge() {
             break;
           case 'getDiff':
             result = orchestrator.getAgentDiff(msg.agentId);
+            break;
+          case 'sendMessage':
+            result = await orchestrator.sendMessage(msg.payload || {});
+            break;
+          case 'listMessages':
+            result = orchestrator.listMessages(msg.agentId, msg.limit);
+            break;
+          case 'getContext':
+            result = orchestrator.getAgentContextPack(msg.agentId);
             break;
           case 'listAgents':
             result = orchestrator.listAgents();

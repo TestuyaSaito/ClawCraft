@@ -67,3 +67,34 @@ TODO for next agent:
 - `src/index.html` 분리 리팩터링부터 시작
 - Electron main process에 orchestrator 뼈대 추가
 - Codex/Claude adapter 2개 우선 구현
+
+2026-03-16 codex session presence:
+- 앱이 켜지면 현재 대화 세션을 나타내는 고정 에이전트 `codex-session` / `Codex Session` 을 자동 보장하도록 변경.
+- orchestrator가 reserved agent를 복원/생성하고 `agents.json` 에 `locked`, `sessionKind`, `taskTitle` 메타를 함께 저장.
+- renderer는 `codex-chat` session agent를 `YOU` 배지와 잠금 상태로 표시하고, 기본 drawer 대상이 되도록 조정.
+- mock browser 부팅에서도 `Codex Session` SCV가 먼저 나타나도록 추가.
+
+검증:
+- `AgentOrchestrator` smoke test에서 `codex-session` 자동 생성 확인.
+- Playwright browser-mode state snapshot에서 `codex-session`, `sessionKind: "codex-chat"`, `locked: true`, `taskTitle: "Talking with you right now"` 확인.
+- 브라우저 모드 정적 서버 검증 시 asset 404 콘솔 에러 1건 존재했지만 이번 세션 SCV 표시 변경과 직접 관련되지는 않음.
+
+2026-03-16 cli session identity:
+- 고정 `codex-session` 제거 방향으로 수정. 실제 세션 식별자는 환경 변수 `CODEX_THREAD_ID` 우선, 없으면 `TERM_SESSION_ID` fallback.
+- 현재 환경 기준 실제 세션 에이전트 ID는 `codex-cli-019cf231-4869-73a2-8e29-05e84b02b630`.
+- `bridge.js` 가 모든 WebSocket 메시지에 `client` 메타(`sessionId`, `threadId`, `pid`, `taskTitle`)를 붙여서 Electron bridge가 실제 CLI 세션 SCV를 upsert 하도록 변경.
+- Electron main bridge는 `hello`/일반 action 모두에서 session client를 등록하고, orchestrator는 legacy `codex-session` worktree/agent를 정리.
+- browser-only mock 모드에서는 실제 환경 세션을 알 수 없어서 `codex-cli-demo` 미리보기 SCV만 표시.
+
+검증:
+- `AgentOrchestrator` smoke test에서 세션 agent가 `codex-cli-019cf231-4869-73a2-8e29-05e84b02b630` 로 생성되는 것 확인.
+- `.clawcraft/agents.json` 에 실제 세션 ID가 저장되는 것 확인.
+- Playwright browser-mode state snapshot에서 mock fallback `codex-cli-demo` 와 locked/sessionKind 반영 확인.
+- Playwright 캔버스 스크린샷은 여전히 검게 저장되지만 `state-0.json` 기준 상태 검증은 통과.
+
+2026-03-16 short session id label:
+- 카드 상단 회색 ID 라벨은 전체 session/worktree ID 대신 앞 5자리만 보이도록 `formatAgentIdTag()` 추가.
+- 예: `codex-cli-demo` 는 카드에서 `(codex)` 로 표시.
+
+검증:
+- Playwright DOM 검사에서 session 카드가 `Codex CLI (Demo)YOU (codex)` 로 표시되는 것 확인.
