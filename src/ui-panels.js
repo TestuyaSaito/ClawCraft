@@ -183,11 +183,22 @@ function formatAgentIdTag(id){
 function addCard(a){
   const bt=BLDG_TYPES.find(b=>b.id===a.bt);const d=document.createElement('div');
   d.className='agent-card';d.id=`ac-${a.id}`;
-  const badge='';
-  const removeButton=`<button class="abtn-remove" title="Remove SCV">✕</button>`;
-  d.innerHTML=`<div class="card-top"><div class="aname">${a.name}${badge}<span style="color:#556;font-size:9px;font-weight:normal"> (${formatAgentIdTag(a.id)})</span></div><div style="display:flex;gap:2px">${removeButton}<button class="abtn-stop" title="Emergency stop" style="background:none;border:none;color:#664444;font-size:10px;cursor:pointer;display:none">⏹</button></div></div><div class="astatus">Idle</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">Waiting</div><div class="pbar"><div class="pfill"></div></div>`;
+  const shortId=String(a.id).replace(/[^0-9a-zA-Z]/g,'').slice(0,5);
+  const nickDisplay=a.nickname||a.displayName||'';
+  d.innerHTML=`<div class="card-top"><div class="aname">${a.name} <span style="color:#556;font-size:9px;font-weight:normal">(${shortId})</span></div><div style="display:flex;gap:2px"><button class="abtn-nick" title="Set nickname" style="background:none;border:none;color:#888;font-size:10px;cursor:pointer">✏</button><button class="abtn-stop" title="Emergency stop" style="background:none;border:none;color:#664444;font-size:10px;cursor:pointer;display:none">⏹</button><button class="abtn-remove" title="Remove SCV" style="background:none;border:none;color:#664444;font-size:11px;cursor:pointer">✕</button></div></div><div class="anickname" style="color:#ffdd44;font-size:10px;margin-top:1px">${nickDisplay}</div><div class="aengine" style="font-size:9px;color:#666;margin-top:1px">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="atask" style="font-size:9px;color:#666;margin-top:1px">Waiting</div><div class="pbar"><div class="pfill"></div></div>`;
   const removeEl=d.querySelector('.abtn-remove');
   if(removeEl)removeEl.onclick=(e)=>{e.stopPropagation();void removeAgent(a.id);};
+  const nickEl=d.querySelector('.abtn-nick');
+  if(nickEl)nickEl.onclick=(e)=>{
+    e.stopPropagation();
+    const agent=findAgent(a.id);
+    if(!agent)return;
+    const nick=prompt('닉네임 입력:',agent.nickname||agent.displayName||'');
+    if(nick===null)return;
+    agent.nickname=nick;
+    agent.displayName=nick;
+    updateCard(a.id);
+  };
   const stopEl=d.querySelector('.abtn-stop');
   if(stopEl)stopEl.onclick=(e)=>{
     e.stopPropagation();
@@ -224,15 +235,17 @@ function updateCard(id){
   const st=c.querySelector('.astatus'),fl=c.querySelector('.pfill');
   const engineEl=c.querySelector('.aengine'),taskEl=c.querySelector('.atask');
   c.className='agent-card'
-    +(a.sessionKind?' session':'')
     +(a.state==='building'?' building':'')
     +(a.progress>=1&&a.runStatus!=='running'?' done':'')
     +(a.runStatus==='failed'?' failed':'');
-  const status=agentStatusMeta(a);
-  st.textContent=status.text||'Idle';
-  st.style.color=status.color;
-  const wsLabel=a.workspaceBranch?` · ${a.workspaceBranch}`:'';
-  engineEl.textContent=fmtEngine(a.engine||'mock',a.model||'demo')+wsLabel;
+  // Hide idle/moving status text — only show when running
+  st.textContent=a.runStatus==='running'?(a.runLabel||'Working'):'';
+  st.style.color=a.runStatus==='running'?'#f0a030':'#666';
+  // Nickname display
+  const nickEl=c.querySelector('.anickname');
+  if(nickEl)nickEl.textContent=a.nickname||a.displayName||'';
+  // Engine
+  engineEl.textContent=fmtEngine(a.engine||'mock',a.model||'demo');
   taskEl.textContent=a.taskTitle||'Waiting';
   // Show/hide stop button based on run status
   const stopBtn=c.querySelector('.abtn-stop');

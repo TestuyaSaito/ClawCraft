@@ -641,6 +641,8 @@ class Agent{
     this.demolishNext=null;
     this.workspaceStrategy='';
     this.workspaceBranch='';
+    this.nickname=meta.nickname||'';
+    this.displayName=meta.displayName||'';
     this.chatBubble='';
     this.chatBubbleTimer=0;
   }
@@ -650,6 +652,8 @@ class Agent{
     this.model=meta.model||this.model;
     this.role=meta.role||this.role;
     this.locked=meta.locked ?? this.locked;
+    if(meta.nickname!==undefined)this.nickname=meta.nickname;
+    if(meta.displayName!==undefined)this.displayName=meta.displayName;
     this.sessionKind=meta.sessionKind||this.sessionKind;
     this.taskTitle=meta.taskTitle||this.taskTitle;
     updateCard(this.id);
@@ -1009,11 +1013,14 @@ class Agent{
       ctx.fillStyle=`rgba(255,220,68,${Math.min(1,s.life*4)})`;
       ctx.beginPath();ctx.arc(s.x-cam.x,s.y-cam.y,1.5,0,6.283);ctx.fill();
     });
-    // Name + ID + status
-    label(ux,uy-50,this.name,'#4a9eff',9);
-    label(ux,uy-40,`(${this.id})`,'#80ff80',7);
-    const status=agentStatusMeta(this);
-    label(ux,uy+52,status.text,status.color,8);
+    // Model name (top) + ID (5 digits) + nickname (below SCV, bigger)
+    const modelLabel=`${(this.engine||'').charAt(0).toUpperCase()+(this.engine||'').slice(1)} ${this.model||''}`.trim();
+    label(ux,uy-52,modelLabel,'#4a9eff',8);
+    const shortId=String(this.id).replace(/[^0-9a-zA-Z]/g,'').slice(0,5);
+    label(ux,uy-42,`(${shortId})`,'#80ff80',7);
+    if(this.displayName||this.nickname){
+      label(ux,uy+38,this.nickname||this.displayName,'#ffdd44',11);
+    }
   }
   // Chat bubble — drawn in separate pass so it's always on top
   drawBubble(){
