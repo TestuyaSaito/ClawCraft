@@ -30,7 +30,33 @@ class AgentOrchestrator extends EventEmitter {
       ['gemini', new GeminiAdapter()],
     ]);
     this.agents = new Map();
-    this.activeRunId = null;
+    this.activeRuns = new Map();
+    this.agentsFile = path.join(this.projectRoot, '.clawcraft', 'agents.json');
+    // Restore agents from previous session, then clean orphans
+    this._restoreAgents();
+    const knownIds = new Set(this.agents.keys());
+    this.workspaceManager.cleanupOrphanWorktrees(knownIds);
+  }
+
+  _restoreAgents() {
+    const fs = require('fs');
+    if (!fs.existsSync(this.agentsFile)) return;
+    try {
+      const data = JSON.parse(fs.readFileSync(this.agentsFile, 'utf8'));
+      for (const agent of data) {
+        agent.status = 'idle';
+        agent.currentRunId = null;
+        this.agents.set(String(agent.id), agent);
+      }
+    } catch {}
+  }
+
+  _persistAgents() {
+    const fs = require('fs');
+    const data = [...this.agents.values()].map(a => ({
+      id: a.id, name: a.name, engine: a.engine, model: a.model, role: a.role,
+    }));
+    fs.writeFileSync(this.agentsFile, JSON.stringify(data, null, 2));
   }
 
   listAgents() {
@@ -47,14 +73,53 @@ class AgentOrchestrator extends EventEmitter {
       runs: this.runStore.listRuns(),
       engines: this.getEngineStatuses(),
       liveMode: true,
-      parallelMode: 'single-live-run',
+      parallelMode: 'git-worktree',
+      collaborationModes: ['solo', 'shared-brief', 'relay'],
     };
+  }
+
+  // 4단계: Relay mode — chain agents sequentially, each gets previous output
+  async startRelay(payload) {
+    const { agentIds, prompt, taskTitle } = payload;
+    if (!agentIds || agentIds.length < 2) throw new Error('Relay에는 2개 이상의 에이전트가 필요합니다.');
+    const results = [];
+    let currentPrompt = prompt;
+    for (const agentId of agentIds) {
+      const agent = this.agents.get(String(agentId));
+      if (!agent) { results.push({ agentId, status: 'skipped', error: 'agent not found' }); continue; }
+      try {
+        const run = await this.startRun({ agentId: String(agentId), prompt: currentPrompt, taskTitle });
+        // Wait for run to complete
+        await new Promise((resolve, reject) => {
+          const handler = (event) => {
+            if (event.runId !== run.id) return;
+            if (event.type === 'run.completed') { this.removeListener('event', handler); resolve(event); }
+            if (event.type === 'run.failed') { this.removeListener('event', handler); reject(new Error(event.errorText || 'failed')); }
+            if (event.type === 'run.cancelled') { this.removeListener('event', handler); reject(new Error('cancelled')); }
+          };
+          this.on('event', handler);
+        });
+        const finishedRun = this.runStore.getRun(run.id);
+        const summary = finishedRun?.summary || '';
+        results.push({ agentId, status: 'done', summary });
+        // Next agent gets previous agent's output as context
+        currentPrompt = `## Previous Agent Output (${agent.name})\n${summary}\n\n---\n\n## Task\n${prompt}`;
+      } catch (err) {
+        results.push({ agentId, status: 'failed', error: err.message });
+        break; // Stop relay chain on failure
+      }
+    }
+    return results;
   }
 
   createAgent(payload = {}) {
     const id = payload.id ?? `${Date.now()}`;
     const engine = payload.engine || 'codex';
     const adapter = this.adapters.get(engine);
+
+    // Create worktree for this agent
+    const workspace = this.workspaceManager.createWorktree(String(id));
+
     const agent = {
       id,
       name: payload.name || `Agent-${id}`,
@@ -64,8 +129,10 @@ class AgentOrchestrator extends EventEmitter {
       status: 'idle',
       currentRunId: null,
       available: adapter ? adapter.isAvailable() : false,
+      workspace, // { workdir, strategy, branch }
     };
     this.agents.set(String(id), agent);
+    this._persistAgents();
     this.emitEvent({ type: 'agent.created', agent });
     return agent;
   }
@@ -75,9 +142,13 @@ class AgentOrchestrator extends EventEmitter {
     const agent = this.agents.get(key);
     if (!agent) return { ok: true };
     if (agent.currentRunId) {
-      await this.cancelRun(agent.currentRunId);
+      await this.cancelRun(agent.currentRunId, true); // wait for process exit
     }
+    // Clean up worktree after process is confirmed dead
+    this.workspaceManager.removeWorktree(key);
     this.agents.delete(key);
+    this.activeRuns.delete(key);
+    this._persistAgents();
     this.emitEvent({ type: 'agent.removed', agentId: key });
     return { ok: true };
   }
@@ -91,14 +162,22 @@ class AgentOrchestrator extends EventEmitter {
     if (!adapter.isAvailable()) {
       throw new Error(`${adapter.label} CLI is not available on this machine.`);
     }
-    if (this.activeRunId) {
-      throw new Error('1단계 구현에서는 live run을 한 번에 하나만 실행할 수 있습니다.');
+    // 2-B: same agent cannot run two tasks simultaneously
+    if (this.activeRuns.has(agentId)) {
+      throw new Error(`${agent.name}은(는) 이미 작업 중입니다. 취소 후 다시 시작하세요.`);
     }
 
+    // Get worktree-based context for this agent
     const context = {
-      ...this.workspaceManager.getWorkingContext(),
+      ...this.workspaceManager.getWorkingContext(agentId),
       sharedDir: this.workspaceManager.getSharedDir(),
     };
+    // 3단계: prepend shared context to prompt
+    const sharedCtx = this.workspaceManager.buildSharedContext();
+    const fullPrompt = sharedCtx
+      ? `${sharedCtx}---\n\n## Task\n${payload.prompt}`
+      : payload.prompt;
+
     const runId = `run_${Date.now()}_${agentId}`;
     const startedAt = new Date().toISOString();
     const artifactsDir = this.workspaceManager.createRunArtifacts(runId);
@@ -108,7 +187,7 @@ class AgentOrchestrator extends EventEmitter {
       agentName: agent.name,
       engine: agent.engine,
       model: agent.model,
-      prompt: payload.prompt,
+      prompt: fullPrompt,
       taskTitle: payload.taskTitle || payload.prompt.slice(0, 80),
       status: 'queued',
       phase: 'queued',
@@ -119,6 +198,7 @@ class AgentOrchestrator extends EventEmitter {
       artifactsDir,
       workspaceDir: context.workdir,
       workspaceStrategy: context.strategy,
+      branch: context.branch || null,
     });
 
     const command = adapter.buildCommand(run, context);
@@ -138,12 +218,12 @@ class AgentOrchestrator extends EventEmitter {
     run.progress = 0.08;
     agent.status = 'running';
     agent.currentRunId = run.id;
-    this.activeRunId = run.id;
+    this.activeRuns.set(agentId, run.id);
     this.emitEvent({
       type: 'run.started',
       run: this.serializeRun(run),
       agent: { ...agent },
-      constraint: 'single-live-run',
+      constraint: 'parallel-worktree',
     });
     this.emitEvent({
       type: 'run.phase',
@@ -268,14 +348,25 @@ class AgentOrchestrator extends EventEmitter {
     run.phase = 'done';
     run.progress = 1;
     run.endedAt = new Date().toISOString();
-    this.runStore.setSummary(runId, summary || run.summary || '작업 완료');
-    this.runStore.setFilesChanged(runId, this.workspaceManager.collectChangedFiles(new Date(run.startedAt).getTime()));
+    const finalSummary = summary || run.summary || '작업 완료';
+    this.runStore.setSummary(runId, finalSummary);
+    this.runStore.setFilesChanged(runId, this.workspaceManager.collectChangedFiles(run.workspaceDir, new Date(run.startedAt).getTime()));
     const agent = this.agents.get(String(run.agentId));
     if (agent) {
       agent.status = 'idle';
       agent.currentRunId = null;
     }
-    this.activeRunId = null;
+    // 3단계: record completion to shared messages
+    this.workspaceManager.appendMessage({
+      type: 'run.completed',
+      agentId: run.agentId,
+      agentName: run.agentName,
+      engine: run.engine,
+      runId,
+      summary: finalSummary.slice(0, 500),
+      filesChanged: (run.filesChanged || []).slice(0, 20),
+    });
+    this.activeRuns.delete(String(run.agentId));
     this.emitEvent({
       type: 'run.completed',
       run: this.serializeRun(run),
@@ -298,7 +389,7 @@ class AgentOrchestrator extends EventEmitter {
       agent.status = 'idle';
       agent.currentRunId = null;
     }
-    this.activeRunId = null;
+    this.activeRuns.delete(String(run.agentId));
     this.emitEvent({
       type: 'run.failed',
       run: this.serializeRun(run),
@@ -307,13 +398,20 @@ class AgentOrchestrator extends EventEmitter {
     });
   }
 
-  async cancelRun(runId) {
+  async cancelRun(runId, waitForExit = false) {
     const run = this.runStore.getRun(runId);
     if (!run) return { ok: true };
     clearInterval(run.progressTimer);
     run.progressTimer = undefined;
     if (run.process && !run.process.killed) {
       run.process.kill('SIGTERM');
+      // Wait for process to actually exit before proceeding
+      if (waitForExit) {
+        await new Promise(resolve => {
+          const timeout = setTimeout(() => { try { run.process.kill('SIGKILL'); } catch {} resolve(); }, 3000);
+          run.process.once('close', () => { clearTimeout(timeout); resolve(); });
+        });
+      }
     }
     run.status = 'cancelled';
     run.phase = 'cancelled';
@@ -323,7 +421,7 @@ class AgentOrchestrator extends EventEmitter {
       agent.status = 'idle';
       agent.currentRunId = null;
     }
-    this.activeRunId = null;
+    this.activeRuns.delete(String(run.agentId));
     this.emitEvent({
       type: 'run.cancelled',
       run: this.serializeRun(run),
@@ -346,6 +444,22 @@ class AgentOrchestrator extends EventEmitter {
       process: undefined,
       progressTimer: undefined,
     };
+  }
+
+  // 5단계: get git diff for an agent's worktree
+  getAgentDiff(agentId) {
+    const { execSync } = require('child_process');
+    const agent = this.agents.get(String(agentId));
+    if (!agent) return { diff: '', files: [] };
+    const ctx = this.workspaceManager.getWorkingContext(String(agentId));
+    if (ctx.strategy !== 'git-worktree') return { diff: '(in-place 모드 — diff 없음)', files: [] };
+    try {
+      const diff = execSync('git diff HEAD', { cwd: ctx.workdir, encoding: 'utf8', maxBuffer: 1024 * 1024 }).trim();
+      const files = execSync('git diff --name-only HEAD', { cwd: ctx.workdir, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+      return { diff: diff || '(변경 없음)', files };
+    } catch (err) {
+      return { diff: `(diff 실패: ${err.message})`, files: [] };
+    }
   }
 
   emitEvent(event) {

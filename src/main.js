@@ -30,6 +30,8 @@ function registerIpcHandlers() {
   ipcMain.handle('agent:remove', async (_event, agentId) => orchestrator.removeAgent(agentId));
   ipcMain.handle('run:start', async (_event, payload) => orchestrator.startRun(payload));
   ipcMain.handle('run:cancel', async (_event, runId) => orchestrator.cancelRun(runId));
+  ipcMain.handle('run:relay', async (_event, payload) => orchestrator.startRelay(payload));
+  ipcMain.handle('workspace:diff', async (_event, agentId) => orchestrator.getAgentDiff(agentId));
 }
 
 app.whenReady().then(() => {

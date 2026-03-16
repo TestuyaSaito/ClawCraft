@@ -14,6 +14,7 @@ class CodexAdapter extends BaseAdapter {
   }
 
   buildCommand(run, context) {
+    // context.workdir is the agent's worktree path (or project root for in-place)
     return {
       command: 'codex',
       args: [

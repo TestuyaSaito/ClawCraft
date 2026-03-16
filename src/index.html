@@ -17,14 +17,9 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 .ctrl-input{width:300px}
 .ctrl-select{min-width:110px}
 .info{font-size:11px;color:#5a8abf}
-#left-panel{position:fixed;left:0;top:44px;width:176px;height:calc(100vh - 44px);background:rgba(0,12,30,.88);border-right:1px solid #1a3a6a;z-index:15;overflow-y:auto;padding:10px;font-size:11px}
-.layer-copy{font-size:10px;color:#7397c8;line-height:1.45;margin-bottom:10px}
-.layer-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border:1px solid #1f436e;background:rgba(19,36,62,.8);border-radius:999px;color:#9fc9ff;font-size:10px;margin:0 4px 4px 0}
-.engine-item{padding:6px 7px;margin-bottom:6px;border:1px solid #15365c;background:rgba(8,24,45,.72);border-radius:3px}
-.engine-item.offline{border-color:#5b2a36;color:#d8a5b0}
-.engine-item .name{font-weight:bold;color:#9ccaff}
-.engine-item .meta{font-size:10px;color:#6e8db9;margin-top:2px}
-#side-panel{position:fixed;right:0;top:44px;width:260px;height:calc(100vh - 44px);background:rgba(0,12,30,.92);border-left:1px solid #1a3a6a;z-index:15;overflow-y:auto;padding:10px;font-size:11px}
+#left-panel{display:none}
+.layer-copy,.layer-chip,.engine-item{display:none}
+#side-panel{position:fixed;right:0;top:44px;width:260px;height:40%;background:rgba(0,12,30,.92);border-left:1px solid #1a3a6a;z-index:15;overflow-y:auto;padding:10px;font-size:11px}
 .panel-title{color:#4a9eff;font-weight:bold;font-size:12px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #1a2a4a}
 .agent-card{background:rgba(20,40,80,.5);border:1px solid #1a3a6a;border-radius:3px;padding:8px;margin-bottom:6px;cursor:pointer;transition:all .2s}
 .agent-card:hover{border-color:#3a6aaa}
@@ -40,15 +35,17 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 .pbar{height:3px;background:#0a1a30;border-radius:2px;margin-top:5px;overflow:hidden}
 .pfill{height:100%;background:linear-gradient(90deg,#f0a030,#ffcc00);border-radius:2px;transition:width .3s;width:0}
 .pfill.complete{background:linear-gradient(90deg,#30d060,#60ff90)}
-#minimap{position:fixed;left:186px;bottom:10px;width:160px;height:100px;background:rgba(0,12,20,.8);border:1px solid #1a3a6a;border-radius:3px;z-index:15}
+#minimap{position:fixed;left:10px;bottom:10px;width:160px;height:100px;background:rgba(0,12,20,.8);border:1px solid #1a3a6a;border-radius:3px;z-index:15}
 #fps-counter{position:fixed;left:10px;top:50px;color:#3a5a3a;font-size:9px;z-index:15}
-#task-drawer{position:fixed;right:272px;bottom:10px;width:360px;height:280px;background:rgba(2,12,28,.95);border:1px solid #1d4e82;border-radius:4px;z-index:18;display:none;overflow:hidden;box-shadow:0 16px 32px rgba(0,0,0,.35)}
-#task-drawer.open{display:block}
-#task-drawer .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:linear-gradient(180deg,rgba(16,38,74,.98),rgba(8,22,46,.95));border-bottom:1px solid #1a3a6a}
-#task-drawer .drawer-title{font-size:12px;color:#b9dcff;font-weight:bold}
-#task-drawer .drawer-close{background:none;border:none;color:#8eaed8;font-size:16px;cursor:pointer;line-height:1}
-#task-drawer .drawer-close:hover{color:#fff}
-#task-drawer .drawer-body{height:calc(100% - 42px);padding:10px 12px;overflow:auto}
+#task-drawer{position:fixed;right:0;top:calc(44px + 40%);width:260px;height:calc(60% - 44px);background:rgba(2,12,28,.95);border-left:1px solid #1a3a6a;border-top:1px solid #1d4e82;z-index:16;display:block;overflow:hidden}
+#task-drawer .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:linear-gradient(180deg,rgba(16,38,74,.98),rgba(8,22,46,.95));border-bottom:1px solid #1a3a6a}
+#task-drawer .drawer-title{font-size:11px;color:#b9dcff;font-weight:bold}
+#task-drawer .drawer-close{display:none}
+#task-drawer .drawer-body{height:calc(100% - 36px);padding:8px 10px;overflow-y:auto;font-size:10px}
+#agent-prompt-box{display:flex;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid #1a3a6a}
+#agent-prompt-input{flex:1;height:26px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 8px;font-size:10px;font-family:inherit;border-radius:2px;outline:none}
+#agent-prompt-send{background:linear-gradient(180deg,#1a3a6a,#0d1f3c);border:1px solid #2a5a9a;color:#7ab8ff;padding:4px 10px;font-size:10px;font-family:inherit;cursor:pointer;border-radius:2px}
+#agent-prompt-send:hover{background:linear-gradient(180deg,#2a5a9a,#1a3a6a);color:#aad4ff}
 .drawer-meta{display:grid;grid-template-columns:92px 1fr;gap:6px 10px;font-size:10px;margin-bottom:10px}
 .drawer-meta dt{color:#5c84b5}
 .drawer-meta dd{color:#c2ddff}
@@ -67,6 +64,11 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
       <option value="gemini">Gemini</option>
     </select>
     <input class="ctrl-input" id="task-prompt" placeholder="작업 프롬프트를 입력하면 SCV가 배럭을 다시 짓습니다" />
+    <select class="ctrl-select" id="collab-mode">
+      <option value="solo">Solo</option>
+      <option value="shared-brief">Shared Brief</option>
+      <option value="relay">Relay</option>
+    </select>
     <button class="btn" id="btn-spawn">+ 에이전트 추가</button>
     <button class="btn" id="btn-start">▶ 작업 시작</button>
     <button class="btn" id="btn-reset">↺ 리셋</button>
@@ -90,15 +92,20 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 <aside id="task-drawer">
   <div class="drawer-head">
     <div class="drawer-title" id="drawer-title">작업 상세</div>
-    <button class="drawer-close" id="drawer-close">×</button>
   </div>
   <div class="drawer-body">
     <dl class="drawer-meta">
       <dt>엔진</dt><dd id="drawer-engine">-</dd>
       <dt>상태</dt><dd id="drawer-phase">-</dd>
       <dt>작업명</dt><dd id="drawer-task">-</dd>
+      <dt>Workspace</dt><dd id="drawer-workspace">-</dd>
+      <dt>Branch</dt><dd id="drawer-branch">-</dd>
       <dt>변경 파일</dt><dd id="drawer-files-meta">-</dd>
     </dl>
+    <div id="agent-prompt-box">
+      <input id="agent-prompt-input" placeholder="이 에이전트에 작업 지시..." />
+      <button id="agent-prompt-send">전송</button>
+    </div>
     <div class="drawer-section">
       <h4>프롬프트</h4>
       <pre id="drawer-prompt">(선택된 작업이 없습니다)</pre>
@@ -111,24 +118,31 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
       <h4>실행 로그</h4>
       <pre id="drawer-logs">(아직 없음)</pre>
     </div>
+    <div class="drawer-section">
+      <h4>변경 Diff</h4>
+      <pre id="drawer-diff" style="max-height:120px">(작업 완료 후 표시됩니다)</pre>
+      <button id="drawer-load-diff" class="btn" style="margin-top:4px;padding:3px 8px;font-size:9px">Diff 로드</button>
+    </div>
   </div>
 </aside>
 
+<script src="audio.js"></script>
+<script src="ui-panels.js"></script>
+<script src="live-state.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
-// SCV AGENT ANIMATION — Pure Canvas + Web Audio, Zero Dependencies
+// SCV AGENT ANIMATION — Canvas Game Engine (core rendering + Agent class)
 // ═══════════════════════════════════════════════════════════════
 
-const MOVE_SPEED=165,PATROL_SPEED=75,BUILD_SPEED=0.06,TILE=32;
+const MOVE_SPEED=165,PATROL_SPEED=75,MINING_SPEED=132,BUILD_SPEED=0.06,TILE=32;
+const MINING_ACCEL=2.7; // 3x slower accel/decel for mining trips
+const MINING_PAUSE=6; // seconds to mine at mineral
 const MAP_IMG_W=2272,MAP_IMG_H=1420;
 const BLDG_TYPES=[
-  {id:'barracks',name:'배럭',w:124,h:100,color:'#8a5a4a',colorR:138,colorG:90,colorB:74},
+  {id:'command_center',name:'커맨드센터',w:127,h:103,color:'#8a5a4a',colorR:138,colorG:90,colorB:74},
 ];
-const SCV_VOICES=['scv_ready','scv_yessir','scv_orders','scv_rightaway','scv_affirmative','scv_ireadyou'];
-const VOICE_FILES={scv_ready:'../assets/sounds/voices/scv_reportin.mp3',scv_yessir:'../assets/sounds/voices/scv_yessir.mp3',scv_orders:'../assets/sounds/voices/scv_orders.mp3',scv_rightaway:'../assets/sounds/voices/scv_rogerthat.mp3',scv_rightaway_sir:'../assets/sounds/voices/scv_rightaway_sir.mp3',scv_jobdone:'../assets/sounds/voices/scv_jobfini.mp3',scv_explo:'../assets/sounds/voices/scv_explo.mp3',scv_affirmative:'../assets/sounds/voices/scv_affirmative.mp3',scv_ireadyou:'../assets/sounds/voices/scv_ireadyou.mp3',scv_build:'../assets/sounds/voices/scv_build.mp3'};
-const MUSIC_FILES=['../assets/sounds/music/terran1.mp3','../assets/sounds/music/terran2.mp3','../assets/sounds/music/terran3.mp3'];
-// === SCV Sprite Atlas (scv_clean.png): 9cols×44px, 2rows×42px ===
-const SCV_CELL=42,SCV_ROW_H=49,SCV_SCALE=1.53;
+// === SCV Sprite Atlas ===
+const SCV_CELL=42,SCV_ROW_H=49,SCV_SCALE=1.0;
 const SCV_DIR16=[
   [4,false],[5,false],[6,false],[7,false],[8,false],
   [7,true],[6,true],[5,true],[4,true],[3,true],
@@ -138,15 +152,24 @@ const SCV_TURN_RATE=55;
 const SCV_ACCEL=8;
 const SCV_DECEL_DIST=30;
 let scvImg=null;
+// Command Center construction stages (row 1 of buildings.png)
+const CC_STAGES=[
+  {x:11,  w:62},   // stage 1: foundation
+  {x:119, w:61},   // stage 2
+  {x:224, w:108},  // stage 3
+  {x:347, w:121},  // stage 4
+  {x:481, w:127},  // stage 5
+  {x:610, w:127},  // stage 6: complete
+];
+const CC_Y=7,CC_H=103;
+// Barracks (row 2, kept for reference)
 const BARR_STAGES=[
-  {x:16,  w:59},
-  {x:124, w:60},
-  {x:228, w:108},
-  {x:370, w:115},
-  {x:502, w:124},
-  {x:644, w:124},
+  {x:16,  w:59},{x:124,w:60},{x:228,w:108},{x:370,w:115},{x:502,w:124},{x:644,w:124},
 ];
 const BARR_Y=135,BARR_H=111;
+// CC flicker pattern when working: irregular 5/6 switching
+const CC_FLICKER_CYCLES=[[4,4,4,5],[4,4,5],[4,5]];
+let mineralImg=null;
 let bldgImg=null;
 const canvas=document.getElementById('game-canvas');
 const ctx=canvas.getContext('2d');
@@ -154,13 +177,6 @@ const miniCanvas=document.getElementById('minimap');
 const miniCtx=miniCanvas.getContext('2d');
 let W,H,WORLD_W=1200,WORLD_H=750,cam={x:0,y:0},keys={},mouse={down:false,px:0,py:0,button:-1};
 let agents=[],nextId=1,time=0,lastT=0,dt=0;
-let audioCtx=null,soundsOk=false,sounds={},audioEls={},bgMusic=null,bgPlaying=false,musicIdx=0;
-const liveAPI=window.clawcraft||null;
-const liveMode=!!liveAPI;
-const engineStatuses=new Map();
-let drawerAgentId=null;
-let liveConstraint='mock';
-let bootstrapped=false;
 
 // ═══════════════════════════════════════════════════════════════
 // SC1 SELECTION & COMMAND STATE
@@ -174,176 +190,6 @@ const MANUAL_IDLE_TIME=5;
 
 function resize(){W=window.innerWidth-260;H=window.innerHeight-44;canvas.width=W;canvas.height=H;WORLD_W=W;WORLD_H=H;miniCanvas.width=160;miniCanvas.height=100;}
 window.addEventListener('resize',resize);resize();
-
-function fmtEngine(engine,model){
-  return model?`${engine.toUpperCase()} · ${model}`:engine.toUpperCase();
-}
-function findAgent(id){return agents.find(a=>String(a.id)===String(id));}
-function summarizePrompt(prompt){
-  if(!prompt)return'대기 중';
-  return prompt.replace(/\s+/g,' ').trim().slice(0,56)||'대기 중';
-}
-function agentStatusMeta(a){
-  if(a.runStatus==='failed')return{text:'실패',color:'#ff7d7d'};
-  if(a.runStatus==='cancelled')return{text:'취소됨',color:'#c89d64'};
-  if(a.runStatus==='running'){
-    const labelMap={planning:'기획 중',coding:'코딩 중',testing:'검증 중',summarizing:'정리 중',done:'완료'};
-    return{text:a.runLabel||labelMap[a.runPhase]||'작업 중',color:a.runPhase==='done'?'#40ff40':'#f0a030'};
-  }
-  const stMap={idle:'대기',move_to_build:'이동 중...',building:`건설 중 ${a.progress*100|0}%`,complete:'건설 완료!',patrol:'순찰 중',idle_at_bldg:'건물 근처 대기',manual_move:'이동 중...',manual_idle:'대기 중...',demolishing:'철거 중'};
-  const cMap={idle:'#666',move_to_build:'#4a9eff',building:'#f0a030',complete:'#40ff40',patrol:'#60aa60',idle_at_bldg:'#506050',manual_move:'#4a9eff',manual_idle:'#666',demolishing:'#ff7070'};
-  return{text:stMap[a.state]||'',color:cMap[a.state]||'#888'};
-}
-function updateLiveStatus(text){
-  document.getElementById('live-status').textContent=text;
-}
-function renderEngineList(){
-  const host=document.getElementById('engine-status-list');
-  const items=[...engineStatuses.values()];
-  if(!items.length){
-    host.innerHTML='<div class="engine-item"><div class="name">Mock</div><div class="meta">브라우저 데모 모드</div></div>';
-    return;
-  }
-  host.innerHTML=items.map((engine)=>`<div class="engine-item${engine.available?'':' offline'}"><div class="name">${engine.label}</div><div class="meta">${engine.available?'CLI 사용 가능':'이 머신에서 CLI 없음'}</div></div>`).join('');
-}
-function syncDrawer(){
-  const drawer=document.getElementById('task-drawer');
-  if(!drawerAgentId){
-    drawer.classList.remove('open');
-    return;
-  }
-  const a=findAgent(drawerAgentId);
-  if(!a){
-    drawerAgentId=null;
-    drawer.classList.remove('open');
-    return;
-  }
-  drawer.classList.add('open');
-  document.getElementById('drawer-title').textContent=`${a.name} 작업 상세`;
-  document.getElementById('drawer-engine').textContent=fmtEngine(a.engine||'mock',a.model||'demo');
-  document.getElementById('drawer-phase').textContent=agentStatusMeta(a).text||'대기';
-  document.getElementById('drawer-task').textContent=a.taskTitle||'대기 중';
-  document.getElementById('drawer-files-meta').textContent=a.filesChanged?.length?`${a.filesChanged.length}개`:a.runStatus==='done'?'0개':'-';
-  document.getElementById('drawer-prompt').textContent=a.runPrompt||'(선택된 작업이 없습니다)';
-  document.getElementById('drawer-summary').textContent=a.runSummary||'(아직 없음)';
-  document.getElementById('drawer-logs').textContent=(a.runLogs&&a.runLogs.length)?a.runLogs.slice(-18).join('\n\n'):'(아직 없음)';
-}
-function openTaskDrawer(agentId){drawerAgentId=String(agentId);syncDrawer();}
-function closeTaskDrawer(){drawerAgentId=null;syncDrawer();}
-
-// ═══════════════════════════════════════════════════════════════
-// SOUND — Web Audio Synthesis
-// ═══════════════════════════════════════════════════════════════
-function initAudio(){
-  if(audioCtx)return;
-  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  if(audioCtx.state==='suspended')audioCtx.resume();
-  genSounds();soundsOk=true;
-  Object.entries(VOICE_FILES).forEach(([k,p])=>{const a=new Audio(p);a.preload='auto';audioEls[k]=a;});
-}
-function toggleMusic(){
-  if(!bgMusic){bgMusic=new Audio(MUSIC_FILES[musicIdx]);bgMusic.volume=0.22;bgMusic.onended=()=>{musicIdx=(musicIdx+1)%MUSIC_FILES.length;bgMusic.src=MUSIC_FILES[musicIdx];bgMusic.play().catch(()=>{});}}
-  if(bgPlaying){bgMusic.pause();bgPlaying=false;document.getElementById('btn-music').textContent='♪ 음악';}
-  else{bgMusic.play().then(()=>{bgPlaying=true;document.getElementById('btn-music').textContent='♪ ON';}).catch(()=>{});}
-}
-function genSounds(){
-  sounds.scv_ready=mkVoice(180,6,30,.15,.55);
-  sounds.scv_yessir=mkVoice(210,9,45,.12,.45);
-  sounds.scv_orders=mkVoice(170,5,25,.18,.5);
-  sounds.scv_rightaway=mkVoice(225,11,50,.10,.48);
-  sounds.scv_jobdone=mkVoice(195,7,35,.14,.65);
-  sounds.weld=mkWeld(2.5);
-  sounds.weld_short=mkWeld(.35);
-  sounds.ching=mkChing();
-  sounds.complete=mkComplete();
-  sounds.click=mkTone(1200,.06,80);
-  sounds.select=mkSelect();
-}
-function mkVoice(bf,mr,md,na,dur){
-  const sr=audioCtx.sampleRate,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
-  for(let i=0;i<len;i++){
-    const t=i/sr,env=Math.min(1,t/.03)*Math.min(1,(dur-t)/.08);
-    const f=bf+Math.sin(6.283*mr*t)*md;
-    const v=Math.sin(6.283*f*t)+Math.sin(6.283*f*2.5*t)*.4+Math.sin(6.283*f*3.8*t)*.15;
-    const n=(Math.random()*2-1)*na,syl=Math.max(0,Math.sin(6.283*(4+dur*2)*t));
-    let s=(v+n+Math.sin(6.283*60*t)*.05)*env*syl*.3;
-    s=Math.tanh(s*2.5)*.35;
-    if(t<.04||t>dur-.04)s+=(Math.random()*2-1)*.12*(1-Math.min(t,dur-t)/.04);
-    d[i]=s;
-  }return buf;
-}
-function mkWeld(dur){
-  const sr=audioCtx.sampleRate,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
-  for(let i=0;i<len;i++){
-    const t=i/sr;
-    const env=(.6+.4*Math.sin(6.283*3*t))*Math.min(1,t/.02)*Math.min(1,(dur-t)/.05);
-    const c1=Math.sin(6.283*3200*t)*Math.max(0,Math.sin(6.283*12*t));
-    const c2=Math.sin(6.283*4800*t)*Math.max(0,Math.sin(6.283*18*t+1));
-    const sz=(Math.random()*2-1)*Math.max(0,Math.sin(6.283*8*t))*.5;
-    const sp=Math.random()>.97?(Math.random()*2-1)*.8:0;
-    d[i]=Math.tanh((c1*.2+c2*.15+sz+Math.sin(6.283*120*t)*.15+sp)*env*.2*3)*.25;
-  }return buf;
-}
-function mkChing(){
-  const sr=audioCtx.sampleRate,dur=0.55,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
-  const hits=[0, 0.22];
-  for(let i=0;i<len;i++){
-    const t=i/sr;
-    let s=0;
-    hits.forEach(ht=>{
-      const dt=t-ht;if(dt<0)return;
-      const env=Math.exp(-dt*28)*(1-Math.exp(-dt*600));
-      const f1=2200+ht*300;
-      const f2=3800+ht*200;
-      const metallic=Math.sin(6.283*f1*dt)*0.55+Math.sin(6.283*f2*dt)*0.3+Math.sin(6.283*f1*2.76*dt)*0.12;
-      const impact=Math.exp(-dt*180)*(Math.random()*2-1)*0.4;
-      s+=Math.tanh((metallic+impact)*1.8)*env*0.35;
-    });
-    d[i]=s;
-  }return buf;
-}
-function mkComplete(){
-  const sr=audioCtx.sampleRate,len=sr*1|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
-  for(let i=0;i<len;i++){
-    const t=i/sr;
-    const n1=Math.sin(6.283*880*t)*Math.max(0,1-t/.5)*(t<.5?1:0);
-    const n2=Math.sin(6.283*1320*t)*Math.max(0,1-(t-.25)/.75)*(t>.25?1:0);
-    d[i]=(n1*.3+n2*.25+Math.sin(6.283*2640*t)*Math.exp(-t*4)*.12)*.3;
-  }return buf;
-}
-function mkTone(f,dur,decay){
-  const sr=audioCtx.sampleRate,len=sr*dur|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
-  for(let i=0;i<len;i++){const t=i/sr;d[i]=Math.sin(6.283*f*t)*Math.exp(-t*decay)*.25;}return buf;
-}
-function mkSelect(){
-  const sr=audioCtx.sampleRate,len=sr*.12|0,buf=audioCtx.createBuffer(1,len,sr),d=buf.getChannelData(0);
-  for(let i=0;i<len;i++){const t=i/sr;d[i]=Math.sin(6.283*(600+t*2000)*t)*Math.exp(-t*25)*.2;}return buf;
-}
-function play(name,vol){
-  if(!soundsOk||!sounds[name])return null;
-  const s=audioCtx.createBufferSource(),g=audioCtx.createGain();
-  g.gain.value=vol||1;s.buffer=sounds[name];s.connect(g);g.connect(audioCtx.destination);s.start(0);return s;
-}
-let vq=[],vp=false;
-function playV(n){vq.push(n);if(!vp)drainV();}
-function drainV(){
-  if(!vq.length){vp=false;return;}vp=true;const name=vq.shift();
-  const ae=audioEls[name];
-  if(ae){ae.currentTime=0;ae.volume=0.7;ae.addEventListener('ended',()=>setTimeout(drainV,150),{once:true});ae.play().catch(()=>setTimeout(drainV,150));}
-  else{const s=play(name,.7);if(s)s.onended=()=>setTimeout(drainV,150);else drainV();}
-}
-
-const buildAudioEls=new Map();
-function startWeld(id){
-  if(!audioEls.scv_build||buildAudioEls.has(id))return;
-  const ba=new Audio(audioEls.scv_build.src);
-  ba.loop=true;ba.volume=0.38;ba.play().catch(()=>{});
-  buildAudioEls.set(id,ba);
-}
-function stopWeld(id){
-  const ba=buildAudioEls.get(id);
-  if(ba){ba.pause();ba.currentTime=0;buildAudioEls.delete(id);}
-}
 
 // ═══════════════════════════════════════════════════════════════
 // DRAWING
@@ -383,6 +229,7 @@ function loadScvSprite(){
   arrowCursorImg=new Image(); arrowCursorImg.src='./assets/sc1_green_arrow_spritesheet.png';
   gasImg=new Image(); gasImg.src='./assets/vespene_gas.png';
   waterMaskImg=new Image(); waterMaskImg.src='./assets/water_mask.png';
+  mineralImg=new Image(); mineralImg.src='./assets/mineral_real.png';
   moveMarkerImgs[0]=new Image(); moveMarkerImgs[0].src='./assets/sc1_move_marker_small.png';
   moveMarkerImgs[1]=new Image(); moveMarkerImgs[1].src='./assets/sc1_move_marker_medium.png';
   moveMarkerImgs[2]=new Image(); moveMarkerImgs[2].src='./assets/sc1_move_marker_large.png';
@@ -406,19 +253,26 @@ function drawScvSprite(cx,cy,dir16,frame){
 function drawBarracks(bx,by,stageIdx){
   if(!bldgImg||!bldgImg.complete||!bldgImg.naturalWidth) return;
   const s=BARR_STAGES[Math.min(stageIdx,5)];
-  const scale=1.2;
+  const scale=0.8;
   const dw=s.w*scale,dh=BARR_H*scale;
   ctx.drawImage(bldgImg,s.x,BARR_Y,s.w,BARR_H,bx-dw/2,by-dh+14,dw,dh);
 }
 
-function drawBldg(bx,by,type,progress){
+function drawBldg(bx,by,type,progress,isWorking){
   const stageIdx=Math.min(5,Math.floor(progress*6));
-  const s=BARR_STAGES[stageIdx];
-  const scale=1.2;
-  const dw=s.w*scale,dh=BARR_H*scale;
+  // CC flicker: when working and complete, alternate stage 5/6 irregularly
+  let drawIdx=stageIdx;
+  if(isWorking&&progress>=0.99){
+    const cycle=CC_FLICKER_CYCLES[Math.floor(time*1.3)%CC_FLICKER_CYCLES.length];
+    const fi=Math.floor(time*6)%cycle.length;
+    drawIdx=cycle[fi];
+  }
+  const s=CC_STAGES[drawIdx];
+  const scale=0.8;
+  const dw=s.w*scale,dh=CC_H*scale;
   ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(bx,by+8,dw*0.4,8,0,0,6.283);ctx.fill();
   if(bldgImg&&bldgImg.complete&&bldgImg.naturalWidth){
-    ctx.drawImage(bldgImg,s.x,BARR_Y,s.w,BARR_H,bx-dw/2,by-dh+14,dw,dh);
+    ctx.drawImage(bldgImg,s.x,CC_Y,s.w,CC_H,bx-dw/2,by-dh+14,dw,dh);
   } else {
     ctx.fillStyle='#4a5a6a';ctx.fillRect(bx-30,by-40,60,40);
   }
@@ -430,6 +284,14 @@ function drawBldg(bx,by,type,progress){
     ctx.strokeStyle='rgba(74,144,208,.3)';ctx.lineWidth=1;
     ctx.strokeRect(bx-dw/2,by-dh+14,dw,dh);
   }
+}
+
+// Draw mineral crystal
+function drawMineral(mx,my){
+  if(!mineralImg||!mineralImg.complete||!mineralImg.naturalWidth)return;
+  const scale=1.2;
+  const dw=mineralImg.naturalWidth*scale,dh=mineralImg.naturalHeight*scale;
+  ctx.drawImage(mineralImg,mx-dw/2,my-dh/2,dw,dh);
 }
 
 // Draw vespene gas animation at geyser positions (each independent)
@@ -554,7 +416,7 @@ const MARKER_CYCLES=[
 ];
 const MARKER_FRAME_DUR=0.06; // seconds per frame (2x faster)
 const MARKER_DRAW_SCALE=1.08; // scale marker images
-const MARKER_OX=-3,MARKER_OY=-3; // offset: slightly upper-left
+const MARKER_OX=-8,MARKER_OY=-8; // offset: slightly upper-left
 function updateAndDrawMoveMarkers(d){
   moveMarkers=moveMarkers.filter(m=>{
     m.t+=d;
@@ -716,7 +578,7 @@ class Agent{
   constructor(id,name,sx,sy,bx,by,bt,meta={}){
     this.id=id;this.name=name;this.x=sx;this.y=sy;
     this.bx=bx;this.by=by;this.bt=bt;
-    this.state='idle';this.progress=0;
+    this.state='idle';this.progress=1; // CC starts fully built
     this.fr=0;this.ft=0;this._moving=false;
     this.vDir=12;this.tDir=12;
     this.spd=0;
@@ -729,6 +591,10 @@ class Agent{
     this.flashAlpha=0;this.flashScale=1;
     // Manual command state
     this.manualTimer=0;this.prevAutoState=null;
+    // Mineral position (below command center)
+    this.mx=bx+((Math.random()-.5)*40);this.my=by+80+Math.random()*20;
+    this.miningTarget=false;
+    this.miningPause=0; // seconds remaining to mine at mineral
     this.engine=meta.engine||'mock';
     this.model=meta.model||'demo';
     this.role=meta.role||'builder';
@@ -746,6 +612,8 @@ class Agent{
     this.targetProgress=0;
     this.demolishTimer=0;
     this.demolishNext=null;
+    this.workspaceStrategy='';
+    this.workspaceBranch='';
   }
   syncMeta(meta={}){
     this.engine=meta.engine||this.engine;
@@ -755,16 +623,16 @@ class Agent{
   }
   startBuild(opts={}){
     const allowRestart=!!opts.force;
-    if(!allowRestart&&this.state!=='idle'&&this.state!=='manual_idle')return;
-    if(allowRestart&&this.state!=='idle'&&this.state!=='manual_idle'){
-      stopWeld(this.id);
-      this.state='idle';
-    }
+    if(!allowRestart&&this.state!=='idle'&&this.state!=='manual_idle'&&this.state!=='patrol'&&this.state!=='idle_at_bldg'&&this.state!=='complete')return;
+    stopWeld(this.id);
     if(opts.progressMode)this.progressMode=opts.progressMode;
     if(typeof opts.targetProgress==='number')this.targetProgress=opts.targetProgress;
-    initAudio();playV('scv_yessir');playV('scv_rightaway');play('click',.3);
+    initAudio();playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);play('click',.3);
     this.manualTimer=0;this.prevAutoState=null;
-    this.moveTo(this.bx-35,this.by+15,()=>this.setState('building'));
+    this.progress=1; // CC stays built
+    this.miningTarget=true;
+    this.miningPause=0;
+    this.moveTo(this.mx,this.my,()=>this.setState('building'));
     this.setState('move_to_build');
   }
   setState(s){
@@ -797,14 +665,12 @@ class Agent{
     this.runLogs=[];
     this.filesChanged=[];
     this.errorText='';
+    this.workspaceStrategy=run.workspaceStrategy||'git-worktree';
+    this.workspaceBranch=run.branch||`agent/${this.id}`;
     this.progressMode='live';
     this.targetProgress=Math.max(0.06,run.progress||0.08);
-    const restart=()=>{this.progress=0;this.startBuild({force:true,progressMode:'live',targetProgress:this.targetProgress});};
-    if(this.progress>0.02||this.state==='complete'||this.state==='patrol'||this.state==='idle_at_bldg'||this.state==='building'){
-      this.beginDemolition(restart);
-    } else {
-      restart();
-    }
+    // No demolition — CC stays built, just start mining
+    this.startBuild({force:true,progressMode:'live',targetProgress:this.targetProgress});
     updateCard(this.id);
   }
   beginDemolition(nextStep){
@@ -888,20 +754,23 @@ class Agent{
   moveTo(x,y,cb){this.tx=x;this.ty=y;this.mcb=cb;}
   doMove(d){
     const dx=this.tx-this.x,dy=this.ty-this.y,dist=Math.sqrt(dx*dx+dy*dy);
+    const isMining=this.state==='building'||this.state==='move_to_build';
+    const accel=isMining?MINING_ACCEL:SCV_ACCEL;
     if(dist<2){
       this.x=this.tx;this.y=this.ty;
-      this.spd=Math.max(0,this.spd-SCV_ACCEL*d*2);
+      this.spd=Math.max(0,this.spd-accel*d*2);
       if(this.mcb){const c=this.mcb;this.mcb=null;c();}
       return false;
     }
     const deg=((Math.atan2(dy,dx)*180/Math.PI)+360)%360;
     this.tDir=Math.round(deg/22.5)%16;
-    const maxSpd=this.state==='patrol'?PATROL_SPEED:MOVE_SPEED;
-    if(dist<SCV_DECEL_DIST){
-      const target=Math.max(0.2,dist/SCV_DECEL_DIST);
-      this.spd=Math.max(target,this.spd-SCV_ACCEL*d*1.5);
+    const maxSpd=this.state==='patrol'?PATROL_SPEED:isMining?MINING_SPEED:MOVE_SPEED;
+    const decelDist=isMining?SCV_DECEL_DIST*2:SCV_DECEL_DIST;
+    if(dist<decelDist){
+      const target=Math.max(0.15,dist/decelDist);
+      this.spd=Math.max(target,this.spd-accel*d*1.5);
     } else {
-      this.spd=Math.min(1,this.spd+SCV_ACCEL*d);
+      this.spd=Math.min(1,this.spd+accel*d);
     }
     const sp=maxSpd*this.spd*d;
     this.x+=dx/dist*sp;this.y+=dy/dist*sp;
@@ -921,15 +790,40 @@ class Agent{
       case'idle':this.it+=d;if(this.it>2+Math.random()*3){this.it=0;this.moveTo(this.hx+(Math.random()-.5)*50,this.hy+(Math.random()-.5)*30,null);}this.doMove(d);break;
       case'move_to_build':this.doMove(d);break;
       case'building':
+        // Progress tracking (for live/mock runs)
         if(this.progressMode==='live'){
           const liveRate=this.targetProgress>=1?.95:.55;
           this.progress=Math.min(this.targetProgress,this.progress+liveRate*d);
           if(this.runStatus==='done'&&this.progress>=.999){this.progress=1;this.setState('complete');break;}
-        } else {
-          this.progress+=BUILD_SPEED*d;
-          if(this.progress>=1){this.progress=1;this.setState('complete');break;}
         }
-        if(this.fr%3===0){const vd=Math.round(this.vDir)%16;for(let i=0;i<2;i++)this.sparks.push({x:this.x+((vd>=5&&vd<=11)?-34:34),y:this.y-2+Math.sin(this.fr*.6)*5,vx:(Math.random()-.5)*60,vy:-30-Math.random()*50,life:.15+Math.random()*.25});}
+        // Mining pause at mineral (6 seconds)
+        if(this.miningPause>0){
+          this.miningPause-=d;
+          // Sparks while mining
+          if(this.fr%4===0){
+            for(let i=0;i<2;i++)this.sparks.push({x:this.mx+(Math.random()-.5)*10,y:this.my-8,vx:(Math.random()-.5)*40,vy:-20-Math.random()*30,life:.12+Math.random()*.15});
+          }
+          // Ching sound periodically
+          this.chingTimer-=d;
+          if(this.chingTimer<=0){this.chingTimer=2.5;play('ching',.2);}
+          break;
+        }
+        // Mining movement: SCV goes between mineral and CC
+        if(!this.mcb){
+          if(this.miningTarget){
+            this.moveTo(this.mx,this.my,()=>{
+              this.miningPause=MINING_PAUSE; // pause 6s at mineral
+              this.chingTimer=0.5;
+              play('ching',.2);
+              this.miningTarget=false;
+            });
+          } else {
+            this.moveTo(this.bx-15,this.by+10,()=>{
+              this.miningTarget=true;
+            });
+          }
+        }
+        this.doMove(d);
         break;
       case'demolishing':
         this.demolishTimer-=d;
@@ -976,28 +870,32 @@ class Agent{
   }
   draw(){
     const sx=this.bx-cam.x,sy=this.by-cam.y;
+    // Draw mineral below command center
+    const mmx=this.mx-cam.x,mmy=this.my-cam.y;
+    drawMineral(mmx,mmy);
     // Building selection circle (SC1 bright green, near-circular)
     if(this.selected&&(this.progress>0||this.state==='demolishing')){
       const stageIdx=Math.min(5,Math.floor(Math.max(this.progress,.08)*6));
-      const bs=BARR_STAGES[stageIdx];
-      const bw=bs.w*1.2;
-      const br=Math.max(bw/2+4,40);
+      const bs=CC_STAGES[stageIdx];
+      const bw=bs.w*0.8;
+      const br=Math.max(bw/2+4,30);
       ctx.save();
       ctx.strokeStyle='#00ff00';
       ctx.lineWidth=1;
       ctx.beginPath();
-      ctx.ellipse(sx,sy-30,br,br*0.75,0,0,6.283);
+      ctx.ellipse(sx,sy-20,br,br*0.75,0,0,6.283);
       ctx.stroke();
       ctx.restore();
     }
     // Building sprite
+    const isWorking=this.runStatus==='running'||this.state==='building';
     const visibleProgress=this.state==='demolishing'?Math.max(this.progress,.12)*Math.max(0,this.demolishTimer/.42):this.progress;
     if(visibleProgress>0){
       ctx.save();
       if(this.state==='demolishing')ctx.globalAlpha=Math.max(.08,this.demolishTimer/.42);
-      drawBldg(sx,sy,this.bt,visibleProgress);
+      drawBldg(sx,sy,this.bt,visibleProgress,isWorking);
       ctx.restore();
-      const ln=this.progress>=1&&this.runStatus!=='running'?'배럭스 ✓':'배럭스';
+      const ln=this.progress>=1&&this.runStatus!=='running'?'커맨드센터 ✓':'커맨드센터';
       label(sx,sy-58,ln,this.progress>=1?'#40ff40':'#f0a030',9);
     }
     if(this.progress>0)drawPbar(sx-24,sy+14,48,this.progress,this.progress>=1&&this.runStatus!=='running');
@@ -1013,7 +911,7 @@ class Agent{
       ctx.strokeStyle='#00ff00';
       ctx.lineWidth=1;
       ctx.beginPath();
-      ctx.ellipse(ux,uy-21,18,9,0,0,6.283);
+      ctx.ellipse(ux,uy-14,12,6,0,0,6.283);
       ctx.stroke();
       ctx.restore();
     }
@@ -1033,8 +931,8 @@ class Agent{
   hitBldg(wx,wy){
     if(this.progress<=0&&this.state!=='demolishing')return false;
     const stageIdx=Math.min(5,Math.floor(Math.max(this.progress,.08)*6));
-    const s=BARR_STAGES[stageIdx];
-    const dw=s.w*1.2,dh=BARR_H*1.2;
+    const s=CC_STAGES[stageIdx];
+    const dw=s.w*0.8,dh=CC_H*0.8;
     return wx>=this.bx-dw/2&&wx<=this.bx+dw/2&&wy>=this.by-dh+14&&wy<=this.by+14;
   }
 }
@@ -1072,7 +970,7 @@ function spawnAgent(options){
   if(typeof id==='number'&&id>=nextId)nextId=id+1;
   const n=meta.name||`Agent-${String(id).padStart(2,'0')}`;
   const sx=60+Math.random()*80,sy=620+Math.random()*60;
-  const sl=nextSlot();const bt='barracks';
+  const sl=nextSlot();const bt='command_center';
   const existing=findAgent(id);
   if(existing){
     existing.syncMeta(meta);
@@ -1111,22 +1009,38 @@ async function removeAgent(id){
   initAudio();
   const idx=agents.findIndex(a=>a.id===id);if(idx<0)return;
   const a=agents[idx];
+  // 2-C: cancel running task first, then cleanup worktree via backend
   if(liveMode){
-    try{await liveAPI.removeAgent(String(id));}
-    catch(err){updateLiveStatus(`제거 실패: ${err.message}`);return;}
+    try{
+      updateLiveStatus(`${a.name} 제거 중...`);
+      await liveAPI.removeAgent(String(id));
+    }catch(err){
+      updateLiveStatus(`제거 실패: ${err.message}`);
+      return;
+    }
   }
   stopWeld(id);
   selectedAgents.delete(id);
+  // Explosion effect on both SCV and building
   const ae=audioEls.scv_explo;
   if(ae){const ex=new Audio(ae.src);ex.volume=0.7;ex.play().catch(()=>{});}
+  // SCV sparks
   for(let i=0;i<18;i++)a.sparks.push({x:a.x,y:a.y,vx:(Math.random()-.5)*140,vy:-60-Math.random()*90,life:.5+Math.random()*.4});
+  // Building sparks if building exists
+  if(a.progress>0.01){
+    for(let i=0;i<12;i++)a.sparks.push({x:a.bx+(Math.random()-.5)*50,y:a.by-20+(Math.random()-.5)*30,vx:(Math.random()-.5)*100,vy:-30-Math.random()*60,life:.3+Math.random()*.3});
+  }
+  // Delay removal so explosion is visible
   setTimeout(()=>{
     const removeIdx=agents.findIndex(ag=>ag.id===id);
     if(removeIdx>=0)agents.splice(removeIdx,1);
     const card=document.getElementById(`ac-${id}`);if(card)card.remove();
     if(drawerAgentId&&String(drawerAgentId)===String(id))closeTaskDrawer();
     updCnt();
-  },150);
+    // Update status bar
+    const running=agents.filter(a=>a.runStatus==='running').length;
+    if(liveMode)updateLiveStatus(running>0?`LIVE MODE · ${running}개 실행 중`:'LIVE MODE · 대기');
+  },250);
 }
 async function resetAll(){
   if(liveMode){
@@ -1138,157 +1052,6 @@ async function resetAll(){
   selectedAgents.clear();
   document.getElementById('agent-list').innerHTML='';updCnt();closeTaskDrawer();
 }
-function ensureRemoteAgent(agent){
-  const local=findAgent(agent.id);
-  if(local){
-    local.syncMeta(agent);
-    return local;
-  }
-  spawnAgent(agent);
-  return findAgent(agent.id);
-}
-function applyRunToAgent(event){
-  const agent=findAgent(event.agentId||event.run?.agentId);
-  if(!agent)return;
-  if(event.type==='run.started'){
-    agent.beginLiveRun(event.run);
-    openTaskDrawer(agent.id);
-    return;
-  }
-  if(event.type==='run.phase'){
-    agent.applyRunPhase(event.phase,event.progress,event.label);
-    return;
-  }
-  if(event.type==='run.output'){
-    agent.applyRunPhase(event.phase,event.progress,agent.runLabel);
-    agent.appendRunLog(event.text);
-    return;
-  }
-  if(event.type==='run.completed'){
-    agent.finishRun('done',event.run);
-    return;
-  }
-  if(event.type==='run.failed'){
-    agent.errorText=event.errorText||'실패';
-    agent.appendRunLog(`ERROR: ${agent.errorText}`);
-    agent.finishRun('failed',event.run);
-    return;
-  }
-  if(event.type==='run.cancelled'){
-    agent.finishRun('cancelled',event.run);
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// UI CARDS
-// ═══════════════════════════════════════════════════════════════
-function addCard(a){
-  const bt=BLDG_TYPES.find(b=>b.id===a.bt);const d=document.createElement('div');
-  d.className='agent-card';d.id=`ac-${a.id}`;
-  d.innerHTML=`<div class="card-top"><div class="aname">${a.name}</div><button class="abtn-remove" title="SCV 제거">✕</button></div><div class="astatus">대기</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">대기 중</div><div class="pbar"><div class="pfill"></div></div>`;
-  d.querySelector('.abtn-remove').onclick=(e)=>{e.stopPropagation();void removeAgent(a.id);};
-  d.onclick=()=>{
-    clearSelection();
-    selectAgent(a);
-    a.select();
-    openTaskDrawer(a.id);
-  };
-  document.getElementById('agent-list').appendChild(d);
-  updateCard(a.id);
-}
-function updateCard(id){
-  const a=agents.find(a=>a.id===id);if(!a)return;const c=document.getElementById(`ac-${id}`);if(!c)return;
-  const st=c.querySelector('.astatus'),fl=c.querySelector('.pfill');
-  const engineEl=c.querySelector('.aengine'),taskEl=c.querySelector('.atask');
-  c.className='agent-card'+(a.state==='building'?' building':'')+(a.progress>=1&&a.runStatus!=='running'?' done':'')+(a.runStatus==='failed'?' failed':'');
-  const status=agentStatusMeta(a);
-  st.textContent=status.text||'대기';
-  st.style.color=status.color;
-  engineEl.textContent=fmtEngine(a.engine||'mock',a.model||'demo');
-  taskEl.textContent=a.taskTitle||'대기 중';
-  fl.style.width=`${a.progress*100|0}%`;
-  fl.className='pfill'+(a.progress>=1&&a.runStatus!=='running'?' complete':'');
-  syncDrawer();
-}
-function updCnt(){document.getElementById('agent-count').textContent=`에이전트: ${agents.length}`;}
-
-async function startRunFromUI(){
-  const prompt=document.getElementById('task-prompt').value.trim();
-  if(!prompt){
-    updateLiveStatus('프롬프트를 입력하세요');
-    return;
-  }
-  if(!agents.length){
-    updateLiveStatus('에이전트를 먼저 추가하세요');
-    return;
-  }
-  if(!liveMode){
-    startAllMock();
-    updateLiveStatus('MOCK RUNNING');
-    return;
-  }
-  const selected=[...selectedAgents].map(id=>findAgent(id)).filter(Boolean);
-  const target=selected[0]||agents[0];
-  if(!target){
-    updateLiveStatus('시작할 에이전트가 없습니다');
-    return;
-  }
-  try{
-    updateLiveStatus(`${target.name} 실행 요청 중`);
-    await liveAPI.startRun({
-      agentId:String(target.id),
-      prompt,
-      taskTitle:summarizePrompt(prompt),
-    });
-  }catch(err){
-    updateLiveStatus(err.message||'실행 실패');
-    target.appendRunLog(`ERROR: ${err.message||'실행 실패'}`);
-    target.runStatus='failed';
-    updateCard(target.id);
-  }
-}
-
-function handleLiveEvent(event){
-  if(event.type==='agent.created'){
-    ensureRemoteAgent(event.agent);
-    updCnt();
-    return;
-  }
-  if(event.type==='agent.removed'){
-    return;
-  }
-  if(event.type.startsWith('run.')){
-    applyRunToAgent(event);
-    if(event.type==='run.started')updateLiveStatus(`LIVE MODE · ${event.agent.name} 실행 중`);
-    if(event.type==='run.completed')updateLiveStatus('LIVE MODE · 대기');
-    if(event.type==='run.failed')updateLiveStatus(`실패 · ${event.errorText||'run failed'}`);
-    if(event.type==='run.cancelled')updateLiveStatus('LIVE MODE · 취소됨');
-  }
-}
-
-async function bootstrapLiveMode(){
-  renderEngineList();
-  if(!liveMode){
-    document.getElementById('layer-copy').textContent='브라우저 모드에서는 mock 작업만 실행됩니다.';
-    updateLiveStatus('MOCK DEMO');
-    if(!bootstrapped){
-      bootstrapped=true;
-      setTimeout(()=>{spawnAgent({name:'Scout-01',engine:'mock',model:'demo'});setTimeout(()=>spawnAgent({name:'Miner-02',engine:'mock',model:'demo'}),200);setTimeout(()=>spawnAgent({name:'Builder-03',engine:'mock',model:'demo'}),400);},300);
-    }
-    return;
-  }
-  const state=await liveAPI.getState();
-  liveConstraint=state.parallelMode||'single-live-run';
-  (state.engines||[]).forEach((engine)=>engineStatuses.set(engine.id,engine));
-  renderEngineList();
-  document.getElementById('layer-copy').textContent='LIVE MODE: 1단계 구현에서는 in-place 단일 실행만 허용됩니다. worktree 병렬화는 다음 단계입니다.';
-  updateLiveStatus('LIVE MODE · 대기');
-  document.getElementById('btn-start').textContent='▶ 선택/첫 에이전트 시작';
-  state.agents.forEach((agent)=>ensureRemoteAgent(agent));
-  updCnt();
-  liveAPI.onEvent(handleLiveEvent);
-}
-
 // ═══════════════════════════════════════════════════════════════
 // INPUT — SC1 style: left-drag select, right-click move
 // ═══════════════════════════════════════════════════════════════
@@ -1372,7 +1135,7 @@ canvas.addEventListener('mouseup',e=>{
     });
     if(movedAny){
       initAudio();
-      playV(SCV_VOICES[Math.random()*4|0]);
+      playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);
       moveMarkers.push({x:wx,y:wy,t:0,cycle:MARKER_CYCLES[Math.random()*MARKER_CYCLES.length|0]});
     }
   }
@@ -1399,7 +1162,21 @@ document.getElementById('btn-spawn').onclick=async ()=>{
 document.getElementById('btn-start').onclick=()=>{void startRunFromUI();};
 document.getElementById('btn-reset').onclick=()=>{void resetAll();};
 document.getElementById('btn-music').onclick=()=>{initAudio();toggleMusic();};
-document.getElementById('drawer-close').onclick=closeTaskDrawer;
+document.getElementById('agent-prompt-send').onclick=sendAgentPrompt;
+document.getElementById('agent-prompt-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendAgentPrompt();});
+document.getElementById('drawer-load-diff').onclick=async ()=>{
+  if(!drawerAgentId)return;
+  const diffEl=document.getElementById('drawer-diff');
+  if(liveMode&&liveAPI.getAgentDiff){
+    try{
+      const result=await liveAPI.getAgentDiff(String(drawerAgentId));
+      diffEl.textContent=result.diff||'(변경 없음)';
+    }catch(e){diffEl.textContent='(diff 로드 실패: '+e.message+')';}
+  } else {
+    const a=findAgent(drawerAgentId);
+    diffEl.textContent=a&&a.filesChanged?.length?a.filesChanged.join('\n'):'(mock 모드 — diff 없음)';
+  }
+};
 
 // ═══════════════════════════════════════════════════════════════
 // MINIMAP
@@ -1531,6 +1308,7 @@ window.advanceTime=(ms)=>{
 // ─── BOOT ────────────────────────────────────────────────────
 genTerrain();
 loadScvSprite();
+syncDrawer(); // initialize task detail panel
 requestAnimationFrame(loop);
 bootstrapLiveMode().catch(err=>{
   document.getElementById('layer-copy').textContent=`부트 실패: ${err.message}`;
