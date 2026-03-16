@@ -92,7 +92,8 @@ class AgentOrchestrator extends EventEmitter {
         // Wait for run to complete
         await new Promise((resolve, reject) => {
           const handler = (event) => {
-            if (event.runId !== run.id) return;
+            const eid = event.run?.id || event.runId;
+            if (eid !== run.id) return;
             if (event.type === 'run.completed') { this.removeListener('event', handler); resolve(event); }
             if (event.type === 'run.failed') { this.removeListener('event', handler); reject(new Error(event.errorText || 'failed')); }
             if (event.type === 'run.cancelled') { this.removeListener('event', handler); reject(new Error('cancelled')); }
@@ -172,8 +173,9 @@ class AgentOrchestrator extends EventEmitter {
       ...this.workspaceManager.getWorkingContext(agentId),
       sharedDir: this.workspaceManager.getSharedDir(),
     };
-    // 3단계: prepend shared context to prompt
-    const sharedCtx = this.workspaceManager.buildSharedContext();
+    // 3단계: prepend shared context to prompt (skip for solo mode)
+    const mode = payload.mode || 'solo';
+    const sharedCtx = mode !== 'solo' ? this.workspaceManager.buildSharedContext() : '';
     const fullPrompt = sharedCtx
       ? `${sharedCtx}---\n\n## Task\n${payload.prompt}`
       : payload.prompt;
@@ -430,12 +432,14 @@ class AgentOrchestrator extends EventEmitter {
     return { ok: true };
   }
 
-  shutdown() {
+  async shutdown() {
+    const promises = [];
     for (const run of this.runStore.listRuns()) {
       if (run.status === 'running') {
-        this.cancelRun(run.id);
+        promises.push(this.cancelRun(run.id, true));
       }
     }
+    await Promise.allSettled(promises);
   }
 
   serializeRun(run) {
@@ -454,9 +458,14 @@ class AgentOrchestrator extends EventEmitter {
     const ctx = this.workspaceManager.getWorkingContext(String(agentId));
     if (ctx.strategy !== 'git-worktree') return { diff: '(in-place 모드 — diff 없음)', files: [] };
     try {
+      // Tracked changes
       const diff = execSync('git diff HEAD', { cwd: ctx.workdir, encoding: 'utf8', maxBuffer: 1024 * 1024 }).trim();
-      const files = execSync('git diff --name-only HEAD', { cwd: ctx.workdir, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
-      return { diff: diff || '(변경 없음)', files };
+      const tracked = execSync('git diff --name-only HEAD', { cwd: ctx.workdir, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+      // Untracked (new) files
+      const untracked = execSync('git ls-files --others --exclude-standard', { cwd: ctx.workdir, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+      const files = [...tracked, ...untracked.map(f => `(new) ${f}`)];
+      const untrackedSection = untracked.length ? `\n\n--- Untracked files ---\n${untracked.join('\n')}` : '';
+      return { diff: (diff || '(변경 없음)') + untrackedSection, files };
     } catch (err) {
       return { diff: `(diff 실패: ${err.message})`, files: [] };
     }

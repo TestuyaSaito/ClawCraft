@@ -53,8 +53,10 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', async (e) => {
   if (orchestrator) {
-    orchestrator.shutdown();
+    e.preventDefault();
+    await orchestrator.shutdown();
+    app.exit(0);
   }
 });

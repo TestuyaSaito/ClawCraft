@@ -50,10 +50,12 @@ async function sendAgentPrompt(){
     // Live mode: dispatch to backend via IPC
     try{
       updateLiveStatus(`${a.name} 실행 요청 중`);
+      const mode=document.getElementById('collab-mode')?.value||'solo';
       await liveAPI.startRun({
         agentId:String(a.id),
         prompt,
         taskTitle:summarizePrompt(prompt),
+        mode,
       });
     }catch(err){
       updateLiveStatus(err.message||'실행 실패');

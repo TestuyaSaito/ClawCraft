@@ -166,12 +166,13 @@ async function startRunFromUI(){
   }
 
   // Solo / Shared Brief — fire all starts in parallel
-  updateLiveStatus(`${targets.length}개 에이전트 시작 중...`);
+  updateLiveStatus(`${targets.length}개 에이전트 시작 중... (${collabMode})`);
   const results=await Promise.allSettled(targets.map(target=>
     liveAPI.startRun({
       agentId:String(target.id),
       prompt,
       taskTitle:summarizePrompt(prompt),
+      mode:collabMode, // 'solo' or 'shared-brief'
     }).catch(err=>{
       target.appendRunLog(`ERROR: ${err.message||'실행 실패'}`);
       target.runStatus='failed';
