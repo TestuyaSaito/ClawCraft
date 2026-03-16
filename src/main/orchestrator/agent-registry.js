@@ -151,6 +151,8 @@ class AgentRegistry {
   toJSON() {
     return this.list().map(a => ({
       id: a.id, sessionId: a.sessionId, name: a.name,
+      displayName: a.displayName, nickname: a.nickname, callSign: a.callSign,
+      aliases: a.aliases,
       engine: a.engine, model: a.model, role: a.role,
       teamId: a.teamId, locked: a.locked,
       sessionKind: a.sessionKind, taskTitle: a.taskTitle,

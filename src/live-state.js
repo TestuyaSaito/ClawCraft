@@ -349,7 +349,23 @@ async function bootstrapLiveMode(){
     }).catch(()=>{});
   }
   // Only show agents that backend already knows about
-  state.agents.forEach((agent)=>ensureRemoteAgent(agent));
+  // Load saved renderer positions (SCV x/y, building positions)
+  let rendererState=[];
+  if(liveAPI.loadRendererState){
+    try{rendererState=await liveAPI.loadRendererState()||[];}catch{}
+  }
+  // Merge renderer positions into agent data
+  state.agents.forEach((agent)=>{
+    const saved=rendererState.find(s=>String(s.id)===String(agent.id));
+    if(saved){
+      agent._sx=saved._sx;agent._sy=saved._sy;
+      agent._bx=saved._bx;agent._by=saved._by;
+      agent._mx=saved._mx;agent._my=saved._my;
+      if(saved.nickname)agent.nickname=saved.nickname;
+      if(saved.displayName)agent.displayName=saved.displayName;
+    }
+    ensureRemoteAgent(agent);
+  });
   updCnt();
   openSessionAgentIfPresent();
   liveAPI.onEvent(handleLiveEvent);

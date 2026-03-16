@@ -799,6 +799,25 @@ class AgentOrchestrator extends EventEmitter {
     }
   }
 
+  // Save/load renderer positions for session persistence
+  saveRendererState(stateArray) {
+    const fs = require('fs');
+    const filePath = path.join(this.projectRoot, '.clawcraft', 'renderer-state.json');
+    fs.writeFileSync(filePath, JSON.stringify(stateArray, null, 2));
+    // Also update registry with nicknames
+    for (const s of stateArray) {
+      if (s.nickname) this.registry.setNickname(String(s.id), s.nickname);
+    }
+    this._persistAgents();
+  }
+
+  loadRendererState() {
+    const fs = require('fs');
+    const filePath = path.join(this.projectRoot, '.clawcraft', 'renderer-state.json');
+    if (!fs.existsSync(filePath)) return [];
+    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { return []; }
+  }
+
   setAgentNickname(agentId, nickname) {
     const agent = this.registry.setNickname(String(agentId), nickname);
     if (agent) {

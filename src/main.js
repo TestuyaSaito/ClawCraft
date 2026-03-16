@@ -56,6 +56,8 @@ function registerIpcHandlers() {
   ipcMain.handle('message:list', async (_event, agentId, limit) => orchestrator.listMessages(agentId, limit));
   ipcMain.handle('agent:context', async (_event, agentId) => orchestrator.getAgentContextPack(agentId));
   ipcMain.handle('agent:setNickname', async (_event, agentId, nickname) => orchestrator.setAgentNickname(agentId, nickname));
+  ipcMain.handle('renderer:saveState', async (_event, state) => orchestrator.saveRendererState(state));
+  ipcMain.handle('renderer:loadState', async () => orchestrator.loadRendererState());
   ipcMain.handle('agent:perception', async (_event, agentId) => {
     // Get perception from renderer via webContents
     if (!mainWindow || mainWindow.isDestroyed()) return null;

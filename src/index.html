@@ -82,22 +82,6 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 .rp-item-title.unread{font-weight:bold;color:#111}
 .rp-item-content{display:none;margin-top:6px;padding:6px 8px;background:#f7f7f7;border:1px solid #e0e0e0;border-radius:3px;font-size:10px;color:#444;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .rp-item.expanded .rp-item-content{display:block}
-/* ═══ Team Chat Log ═══ */
-#team-chat{position:fixed;left:10px;top:50px;width:280px;max-height:320px;background:rgba(0,8,20,0.88);border:1px solid #1a3a6a;border-radius:4px;z-index:19;display:flex;flex-direction:column;font-size:10px}
-#team-chat .chat-head{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;background:rgba(16,38,74,.95);border-bottom:1px solid #1a3a6a;cursor:pointer;flex-shrink:0}
-#team-chat .chat-title{color:#4a9eff;font-weight:bold;font-size:10px}
-#team-chat .chat-badge{background:#f0a030;color:#000;font-size:8px;padding:1px 4px;border-radius:6px;font-weight:bold}
-#team-chat .chat-body{overflow-y:auto;max-height:280px;padding:4px 6px}
-#team-chat.collapsed .chat-body{display:none}
-.chat-msg{margin-bottom:4px;line-height:1.35}
-.chat-msg .cm-name{font-weight:bold;color:#4a9eff}
-.chat-msg .cm-kind{font-size:8px;color:#888;margin-left:3px}
-.chat-msg .cm-text{color:#c2ddff;margin-left:2px}
-.chat-msg.cm-system .cm-name{color:#f0a030}
-.chat-msg.cm-delegate .cm-name{color:#ff9800}
-.chat-msg.cm-blocker .cm-name{color:#ff5252}
-.chat-msg.cm-report .cm-name{color:#4caf50}
-.chat-msg.cm-meeting .cm-name{color:#ffdd44}
 </style>
 </head>
 <body>
@@ -140,13 +124,6 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 </div>
 <canvas id="minimap"></canvas>
 <div id="fps-counter"></div>
-<div id="team-chat">
-  <div class="chat-head" onclick="document.getElementById('team-chat').classList.toggle('collapsed')">
-    <span class="chat-title">📻 Team Radio</span>
-    <span class="chat-badge" id="chat-badge">0</span>
-  </div>
-  <div class="chat-body" id="chat-body"></div>
-</div>
 <aside id="task-drawer">
   <div class="drawer-head">
     <div class="drawer-title" id="drawer-title">Task Detail</div>
@@ -1262,9 +1239,12 @@ function spawnAgent(options){
   if(!meta.silent)initAudio();
   const id=meta.id??nextId++;
   if(typeof id==='number'&&id>=nextId)nextId=id+1;
-  const n=meta.name||`Agent-${String(id).padStart(2,'0')}`;
-  const sx=WORLD_W*0.45+Math.random()*WORLD_W*0.15,sy=WORLD_H*0.82+Math.random()*WORLD_H*0.06;
-  const sl=nextSlot();const bt='command_center';
+  const n=meta.nickname||meta.displayName||meta.name||`Agent-${String(id).padStart(2,'0')}`;
+  // Restore position from saved state, or generate new
+  const sx=meta._sx||(WORLD_W*0.45+Math.random()*WORLD_W*0.15);
+  const sy=meta._sy||(WORLD_H*0.82+Math.random()*WORLD_H*0.06);
+  const sl=meta._bx?{x:meta._bx,y:meta._by,u:true}:nextSlot();
+  const bt='command_center';
   const existing=findAgent(id);
   if(existing){
     existing.syncMeta(meta);
@@ -1683,6 +1663,20 @@ function renderGameToText(){
   return JSON.stringify(payload);
 }
 window.render_game_to_text=renderGameToText;
+
+// Save renderer agent positions to backend for session persistence
+function saveRendererState(){
+  if(!liveMode||!liveAPI.saveRendererState)return;
+  const state=agents.map(a=>({
+    id:a.id,_sx:Math.round(a.x),_sy:Math.round(a.y),
+    _bx:Math.round(a.bx),_by:Math.round(a.by),
+    _mx:Math.round(a.mx||0),_my:Math.round(a.my||0),
+    nickname:a.nickname||'',displayName:a.displayName||'',
+  }));
+  liveAPI.saveRendererState(state).catch(()=>{});
+}
+// Auto-save every 10 seconds
+setInterval(saveRendererState,10000);
 
 // World objects list for perception
 function getWorldObjects(){
