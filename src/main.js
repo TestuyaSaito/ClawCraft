@@ -57,6 +57,46 @@ function registerIpcHandlers() {
     if (!mainWindow || mainWindow.isDestroyed()) return null;
     return mainWindow.webContents.executeJavaScript(`getAgentPerception('${agentId}')`);
   });
+
+  // Project folder selection
+  ipcMain.handle('project:selectFolder', async () => {
+    const { dialog } = require('electron');
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+      title: '프로젝트 폴더 선택',
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    const newPath = result.filePaths[0];
+    // Shutdown current orchestrator and reinitialize with new path
+    await orchestrator.shutdown();
+    orchestrator = new AgentOrchestrator(newPath);
+    orchestrator.on('event', (payload) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('orchestrator:event', payload);
+      }
+    });
+    // Save project path for next session
+    const fs = require('fs');
+    const configPath = path.join(__dirname, '..', '.clawcraft', 'config.json');
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify({ projectRoot: newPath }, null, 2));
+    return newPath;
+  });
+
+  ipcMain.handle('project:getPath', async () => {
+    return orchestrator.projectRoot;
+  });
+}
+
+// Load saved project path
+function getSavedProjectRoot() {
+  const fs = require('fs');
+  const configPath = path.join(__dirname, '..', '.clawcraft', 'config.json');
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (config.projectRoot && fs.existsSync(config.projectRoot)) return config.projectRoot;
+  } catch {}
+  return path.resolve(__dirname, '..');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -145,7 +185,7 @@ function startBridge() {
 }
 
 app.whenReady().then(() => {
-  orchestrator = new AgentOrchestrator(path.resolve(__dirname, '..'));
+  orchestrator = new AgentOrchestrator(getSavedProjectRoot());
   orchestrator.on('event', (payload) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('orchestrator:event', payload);

@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('clawcraft', {
   listMessages: (agentId, limit) => ipcRenderer.invoke('message:list', agentId, limit),
   getAgentContext: (agentId) => ipcRenderer.invoke('agent:context', agentId),
   lookAround: (agentId) => ipcRenderer.invoke('agent:perception', agentId),
+  selectProjectFolder: () => ipcRenderer.invoke('project:selectFolder'),
+  getProjectPath: () => ipcRenderer.invoke('project:getPath'),
   onEvent: (handler) => {
     const wrapped = (_event, payload) => handler(payload);
     ipcRenderer.on('orchestrator:event', wrapped);

@@ -213,6 +213,15 @@ async function bootstrapLiveMode(){
   document.getElementById('layer-copy').textContent=`LIVE MODE: ${liveConstraint==='git-worktree'?'Independent worktree per agent':'Single run mode'}`;
   updateLiveStatus('LIVE · Idle');
   document.getElementById('btn-start').textContent='▶ Start Selected';
+  // Show current project path
+  if(liveAPI.getProjectPath){
+    liveAPI.getProjectPath().then(p=>{
+      if(p){
+        document.getElementById('project-path').textContent=p.split('/').slice(-2).join('/');
+        document.getElementById('project-path').title=p;
+      }
+    }).catch(()=>{});
+  }
   // Only show agents that backend already knows about
   state.agents.forEach((agent)=>ensureRemoteAgent(agent));
   updCnt();

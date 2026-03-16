@@ -64,8 +64,10 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 </head>
 <body>
 <div id="top-bar">
-  <span class="title">⚙ SCV AGENT MONITOR — StarCraft Build Animation</span>
+  <span class="title">⚙ SCV AGENT MONITOR</span>
   <div id="controls">
+    <button class="btn" id="btn-folder" title="프로젝트 폴더 지정">📂</button>
+    <span class="info" id="project-path" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:#6a9acc" title="클릭하여 변경">(폴더 미지정)</span>
     <select class="ctrl-select" id="agent-engine">
       <option value="codex">Codex</option>
       <option value="claude">Claude</option>
@@ -83,7 +85,7 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
     <button class="btn" id="btn-reset">↺ Reset</button>
     <button class="btn" id="btn-music">♪ Music</button>
     <span class="info" id="agent-count">Agents: 0</span>
-    <span class="info" id="live-status">MOCK DEMO</span>
+    <span class="info" id="live-status" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block"></span>
   </div>
 </div>
 <canvas id="game-canvas"></canvas>
@@ -776,7 +778,7 @@ class Agent{
     // 코드가 아닌 일반 대화만 말풍선으로 표시
     const clean=text.replace(/```[\s\S]*?```/g,'').replace(/^\s*[-*]\s/gm,'').trim();
     if(clean.length>3&&!clean.startsWith('ERROR')&&!clean.startsWith('MOCK')){
-      this.chatBubble=clean.slice(0,80)+(clean.length>80?'…':'');
+      this.chatBubble=clean.slice(0,300)+(clean.length>300?'…':'');
       this.chatBubbleTimer=999; // stays until next message replaces it
     }
     syncDrawer();
@@ -1057,6 +1059,8 @@ class Agent{
       else line=test;
     }
     if(line)lines.push(line);
+    // Max 10 lines
+    if(lines.length>10){lines.length=10;lines[9]+='…';}
     const lineH=14;
     const tw=Math.min(maxW,Math.max(...lines.map(l=>ctx.measureText(l).width)));
     const bw=tw+16,bh=lines.length*lineH+10;
@@ -1110,9 +1114,9 @@ const slots=[];
 function initSlots(){
   slots.length=0;
   const cols=4,rows=3;
-  const gx=140,gy=180;
+  const gx=350,gy=450;
   const totalW=(cols-1)*gx,totalH=(rows-1)*gy;
-  const baseX=(WORLD_W-totalW)/2,baseY=60;
+  const baseX=(WORLD_W-totalW)/2,baseY=200;
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)slots.push({x:Math.round(baseX+c*gx),y:Math.round(baseY+r*gy),u:false});
 }
 initSlots();
@@ -1308,6 +1312,25 @@ canvas.addEventListener('mouseup',e=>{
 
 canvas.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();return false;});
 document.addEventListener('contextmenu',e=>{if(e.target===canvas||canvas.contains(e.target)){e.preventDefault();}});
+
+// Project folder button
+document.getElementById('btn-folder').onclick=async ()=>{
+  if(!liveMode){updateLiveStatus('Electron에서만 폴더 지정 가능');return;}
+  const newPath=await liveAPI.selectProjectFolder();
+  if(newPath){
+    document.getElementById('project-path').textContent=newPath.split('/').slice(-2).join('/');
+    document.getElementById('project-path').title=newPath;
+    updateLiveStatus(`Project: ${newPath}`);
+    // Reload state from new orchestrator
+    const state=await liveAPI.getState();
+    agents.length=0;nextId=1;
+    document.getElementById('agent-list').innerHTML='';
+    state.agents.forEach(a=>ensureRemoteAgent(a));
+    updCnt();
+  }
+};
+document.getElementById('project-path').onclick=document.getElementById('btn-folder').onclick;
+
 document.getElementById('btn-spawn').onclick=async ()=>{
   if(!audioUnlocked){audioUnlocked=true;initAudio();}
   const engine=document.getElementById('agent-engine').value;
