@@ -48,6 +48,12 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 #agent-prompt-input{flex:1;height:26px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 8px;font-size:10px;font-family:inherit;border-radius:2px;outline:none}
 #agent-prompt-send{background:linear-gradient(180deg,#1a3a6a,#0d1f3c);border:1px solid #2a5a9a;color:#7ab8ff;padding:4px 10px;font-size:10px;font-family:inherit;cursor:pointer;border-radius:2px}
 #agent-prompt-send:hover{background:linear-gradient(180deg,#2a5a9a,#1a3a6a);color:#aad4ff}
+#nick-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;display:none;align-items:center;justify-content:center}
+#nick-modal.open{display:flex}
+#nick-modal .modal-box{background:rgba(6,16,36,.96);border:1px solid #2a5a9a;border-radius:4px;padding:16px;min-width:260px}
+#nick-modal .modal-box h3{color:#b9dcff;font-size:12px;margin-bottom:10px}
+#nick-modal .modal-box input{width:100%;height:28px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 8px;font-size:11px;font-family:inherit;border-radius:2px;outline:none;margin-bottom:10px}
+#nick-modal .modal-btns{display:flex;gap:6px;justify-content:flex-end}
 .drawer-meta{display:grid;grid-template-columns:92px 1fr;gap:6px 10px;font-size:10px;margin-bottom:10px}
 .drawer-meta dt{color:#5c84b5}
 .drawer-meta dd{color:#c2ddff}
@@ -134,6 +140,17 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
     <input id="inline-chat-input" style="width:220px;height:20px;background:rgba(4,16,34,.95);border:1px solid #21497d;color:#b8dcff;padding:0 6px;font-size:10px;font-family:inherit;border-radius:2px;outline:none" placeholder="메시지 입력..." />
     <button id="inline-chat-send" class="btn" style="padding:2px 8px;font-size:9px;height:20px">전송</button>
     <button id="inline-chat-close" style="background:none;border:none;color:#666;font-size:12px;cursor:pointer;line-height:1">×</button>
+  </div>
+</div>
+
+<div id="nick-modal">
+  <div class="modal-box">
+    <h3>Enter nickname</h3>
+    <input id="nick-modal-input" placeholder="Nickname..." />
+    <div class="modal-btns">
+      <button class="btn" id="nick-modal-cancel">Cancel</button>
+      <button class="btn" id="nick-modal-ok">OK</button>
+    </div>
   </div>
 </div>
 
@@ -788,9 +805,7 @@ class Agent{
   }
   // SC1 right-click move command
   commandMove(wx,wy){
-    // Can't move during construction (progress<1) or demolishing
     if(this.state==='demolishing')return false;
-    if(this.state==='building'&&this.progress<1)return false;
     // Save previous state for autonomous resume
     if(this.state!=='manual_move'&&this.state!=='manual_idle'){
       this.prevAutoState=this.state;
@@ -1018,14 +1033,12 @@ class Agent{
       ctx.fillStyle=`rgba(255,220,68,${Math.min(1,s.life*4)})`;
       ctx.beginPath();ctx.arc(s.x-cam.x,s.y-cam.y,1.5,0,6.283);ctx.fill();
     });
-    // Model name (top) + ID (5 digits) + nickname (below SCV, bigger)
-    const modelLabel=`${(this.engine||'').charAt(0).toUpperCase()+(this.engine||'').slice(1)} ${this.model||''}`.trim();
-    label(ux,uy-52,modelLabel,'#4a9eff',8);
-    const shortId=String(this.id).replace(/[^0-9a-zA-Z]/g,'').slice(0,5);
-    label(ux,uy-42,`(${shortId})`,'#80ff80',7);
-    if(this.displayName||this.nickname){
-      label(ux,uy+38,this.nickname||this.displayName,'#ffdd44',11);
-    }
+    // Model name always shown above SCV
+    const modelLabel=`${(this.engine||'').toUpperCase()} ${this.model||''}`.trim();
+    label(ux,uy-50,modelLabel,'#4a9eff',8);
+    // Nickname below SCV (yellow), or name if no nickname
+    const displayName=this.nickname||this.displayName||this.name;
+    label(ux,uy+38,displayName,'#ffdd44',10);
   }
   // Chat bubble — drawn in separate pass so it's always on top
   drawBubble(){
@@ -1298,20 +1311,25 @@ document.addEventListener('contextmenu',e=>{if(e.target===canvas||canvas.contain
 document.getElementById('btn-spawn').onclick=async ()=>{
   if(!audioUnlocked){audioUnlocked=true;initAudio();}
   const engine=document.getElementById('agent-engine').value;
-  const modelMap={codex:'gpt-5',claude:'opus-5.4',gemini:'auto-gemini-3'};
+  const modelMap={codex:'gpt-5.4',claude:'opus-5.4',gemini:'auto-gemini-3'};
   const nameMap={codex:'Codex',claude:'Claude',gemini:'Gemini'};
   const name=`${nameMap[engine]||engine}-${String(nextId).padStart(2,'0')}`;
-  // Always create locally first so it appears immediately
-  const id=spawnAgent({engine,model:modelMap[engine]||'demo',name});
-  // If live mode, also register with backend (non-blocking)
   if(liveMode&&liveAPI.createAgent){
-    liveAPI.createAgent({id,name,engine,model:modelMap[engine]||'default'}).then(agent=>{
-      const local=findAgent(id);
-      if(local)local.syncMeta(agent);
+    // Live mode: backend is source of truth — create there first
+    try{
+      updateLiveStatus(`Creating ${name}...`);
+      const agent=await liveAPI.createAgent({name,engine,model:modelMap[engine]||'default'});
+      // Only create locally after backend confirms
+      ensureRemoteAgent(agent);
+      updCnt();
       updateLiveStatus(`LIVE · ${name} ready`);
-    }).catch(err=>{
-      console.warn('Backend agent create failed:',err.message);
-    });
+    }catch(err){
+      updateLiveStatus(`Spawn failed: ${err.message}`);
+      console.error('Backend agent create failed:',err);
+    }
+  } else {
+    // Browser/mock mode: local only
+    spawnAgent({engine,model:modelMap[engine]||'demo',name});
   }
 };
 document.getElementById('btn-start').onclick=()=>{void startRunFromUI();};

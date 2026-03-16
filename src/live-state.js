@@ -10,9 +10,7 @@ let liveConstraint='mock';
 let bootstrapped=false;
 
 function openSessionAgentIfPresent(){
-  if(drawerAgentId)return;
-  const sessionAgent=agents.find(a=>String(a.sessionKind||'').startsWith('codex-cli'));
-  if(sessionAgent)openTaskDrawer(sessionAgent.id);
+  // No auto-open — user selects agents manually
 }
 
 function fmtEngine(engine,model){
@@ -191,47 +189,23 @@ async function startRunFromUI(){
 
 async function bootstrapLiveMode(){
   renderEngineList();
-  if(!bootstrapped){
-    bootstrapped=true;
-    // Spawn Gemini CLI
-    setTimeout(()=>{
-      const gid=spawnAgent({name:'Gemini CLI',engine:'gemini',model:'pro-1.5',role:'assistant',silent:true});
-      const g=findAgent(gid);
-      if(g){
-        g.runStatus='idle';g.runLabel='Connected';
-        g.runLogs.push('Gemini CLI connected via Desktop Terminal.');
-        g.runLogs.push('Ready to assist with your project!');
-        updateCard(g.id);
-      }
-    },100);
-  }
   if(!liveMode){
-    document.getElementById('layer-copy').textContent='Browser mode: mock tasks only.';
-    updateLiveStatus('MOCK DEMO');
-    setTimeout(()=>{
-      const sessionId=spawnAgent({
-        id:'codex-cli-demo',
-        name:'Codex CLI (Demo)',
-        engine:'codex',
-        model:'gpt-5',
-        role:'assistant',
-        locked:true,
-        sessionKind:'codex-cli-demo',
-        taskTitle:'CLI session preview',
-        silent:true,
-      });
-      const sessionAgent=findAgent(sessionId);
-      if(sessionAgent&&!sessionAgent.runLogs.length){
-        sessionAgent.runLogs.push('Demo-only session SCV. In Electron live mode this becomes the real CLI session ID.');
-        updateCard(sessionAgent.id);
-      }
-      spawnAgent({name:'Scout-01',engine:'mock',model:'demo',silent:true});
-      setTimeout(()=>spawnAgent({name:'Miner-02',engine:'mock',model:'demo',silent:true}),200);
-      setTimeout(()=>spawnAgent({name:'Builder-03',engine:'mock',model:'demo',silent:true}),400);
-      openSessionAgentIfPresent();
-    },500);
+    // Browser/mock mode — spawn demo agents locally
+    if(!bootstrapped){
+      bootstrapped=true;
+      document.getElementById('layer-copy').textContent='Browser mode: mock tasks only.';
+      updateLiveStatus('MOCK DEMO');
+      setTimeout(()=>{
+        spawnAgent({name:'Gemini CLI',engine:'gemini',model:'pro-1.5',role:'assistant',silent:true});
+        spawnAgent({name:'Scout-01',engine:'mock',model:'demo',silent:true});
+        setTimeout(()=>spawnAgent({name:'Miner-02',engine:'mock',model:'demo',silent:true}),200);
+        setTimeout(()=>spawnAgent({name:'Builder-03',engine:'mock',model:'demo',silent:true}),400);
+      },500);
+    }
     return;
   }
+  // Live mode — backend is source of truth
+  bootstrapped=true;
   const state=await liveAPI.getState();
   liveConstraint=state.parallelMode||'git-worktree';
   (state.engines||[]).forEach((engine)=>engineStatuses.set(engine.id,engine));
@@ -239,6 +213,7 @@ async function bootstrapLiveMode(){
   document.getElementById('layer-copy').textContent=`LIVE MODE: ${liveConstraint==='git-worktree'?'Independent worktree per agent':'Single run mode'}`;
   updateLiveStatus('LIVE · Idle');
   document.getElementById('btn-start').textContent='▶ Start Selected';
+  // Only show agents that backend already knows about
   state.agents.forEach((agent)=>ensureRemoteAgent(agent));
   updCnt();
   openSessionAgentIfPresent();
