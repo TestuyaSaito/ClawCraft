@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "electron": "^41.0.2"
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
   }
 }
