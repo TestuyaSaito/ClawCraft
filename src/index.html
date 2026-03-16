@@ -39,14 +39,14 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 .pfill.complete{background:linear-gradient(90deg,#30d060,#60ff90)}
 #minimap{position:fixed;left:10px;bottom:10px;width:160px;height:100px;background:rgba(0,12,20,.8);border:1px solid #1a3a6a;border-radius:3px;z-index:15}
 #fps-counter{position:fixed;left:10px;top:50px;color:#3a5a3a;font-size:9px;z-index:15}
-#task-drawer{position:fixed;right:0;top:calc(44px + 40%);width:260px;height:calc(60% - 44px);background:rgba(2,12,28,.95);border-left:1px solid #1a3a6a;border-top:1px solid #1d4e82;z-index:16;display:block;overflow:hidden}
+#task-drawer{position:fixed;right:0;top:calc(44px + 40%);width:260px;height:calc(60% - 44px);background:rgba(2,12,28,.98);border-left:1px solid #1a3a6a;border-top:1px solid #1d4e82;z-index:20;display:block;overflow:hidden;pointer-events:auto}
 #task-drawer .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:linear-gradient(180deg,rgba(16,38,74,.98),rgba(8,22,46,.95));border-bottom:1px solid #1a3a6a}
 #task-drawer .drawer-title{font-size:11px;color:#b9dcff;font-weight:bold}
 #task-drawer .drawer-close{display:none}
 #task-drawer .drawer-body{height:calc(100% - 36px);padding:8px 10px;overflow-y:auto;font-size:10px}
-#agent-prompt-box{display:flex;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid #1a3a6a}
-#agent-prompt-input{flex:1;height:26px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 8px;font-size:10px;font-family:inherit;border-radius:2px;outline:none}
-#agent-prompt-send{background:linear-gradient(180deg,#1a3a6a,#0d1f3c);border:1px solid #2a5a9a;color:#7ab8ff;padding:4px 10px;font-size:10px;font-family:inherit;cursor:pointer;border-radius:2px}
+#agent-prompt-box{display:flex;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid #1a3a6a;position:relative;z-index:25}
+#agent-prompt-input{flex:1;height:26px;background:rgba(4,16,34,.92);border:1px solid #21497d;color:#b8dcff;padding:0 8px;font-size:10px;font-family:inherit;border-radius:2px;outline:none;cursor:text;pointer-events:auto}
+#agent-prompt-send{background:linear-gradient(180deg,#1a3a6a,#0d1f3c);border:1px solid #2a5a9a;color:#7ab8ff;padding:4px 10px;font-size:10px;font-family:inherit;cursor:pointer;border-radius:2px;pointer-events:auto}
 #agent-prompt-send:hover{background:linear-gradient(180deg,#2a5a9a,#1a3a6a);color:#aad4ff}
 #nick-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;display:none;align-items:center;justify-content:center}
 #nick-modal.open{display:flex}
@@ -60,6 +60,27 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 .drawer-section{margin-bottom:12px}
 .drawer-section h4{font-size:10px;color:#78aef0;margin-bottom:4px}
 .drawer-section pre{background:rgba(4,16,36,.9);border:1px solid #15365c;border-radius:3px;padding:8px;color:#c7e0ff;font-size:10px;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:74px;overflow:auto}
+/* ═══ Report Panel ═══ */
+#report-panel{position:fixed;left:10px;bottom:120px;width:300px;max-height:400px;background:rgba(255,255,255,.96);border:1px solid #bbb;border-radius:5px;z-index:18;font-family:'Consolas','Courier New',monospace;color:#222;display:flex;flex-direction:column;box-shadow:0 2px 12px rgba(0,0,0,.25);transition:max-height .3s}
+#report-panel.collapsed{max-height:30px;overflow:hidden}
+#report-panel .rp-head{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:linear-gradient(180deg,#f4f4f4,#e8e8e8);border-bottom:1px solid #ccc;border-radius:5px 5px 0 0;cursor:pointer;min-height:30px;flex-shrink:0}
+#report-panel.collapsed .rp-head{border-radius:5px;border-bottom:none}
+#report-panel .rp-title{font-size:12px;font-weight:bold;color:#333;display:flex;align-items:center;gap:6px}
+#report-panel .rp-badge{display:inline-block;background:#e53935;color:#fff;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:8px;line-height:1.3}
+#report-panel .rp-minimize{background:none;border:none;color:#888;font-size:14px;cursor:pointer;line-height:1;padding:0 2px}
+#report-panel .rp-minimize:hover{color:#333}
+#report-panel .rp-body{overflow-y:auto;max-height:366px;padding:0}
+.rp-item{border-bottom:1px solid #ddd;padding:8px 10px;cursor:pointer;transition:background .15s}
+.rp-item:hover{background:#f0f0f0}
+.rp-item:last-child{border-bottom:none}
+.rp-item-head{display:flex;gap:8px;align-items:flex-start}
+.rp-item-sender{flex-shrink:0;min-width:60px}
+.rp-item-sender .rp-nick{font-size:10px;font-weight:bold;color:#1a237e}
+.rp-item-sender .rp-time{font-size:8px;color:#888;margin-top:1px}
+.rp-item-title{flex:1;font-size:10px;color:#333;line-height:1.4;word-break:break-word}
+.rp-item-title.unread{font-weight:bold;color:#111}
+.rp-item-content{display:none;margin-top:6px;padding:6px 8px;background:#f7f7f7;border:1px solid #e0e0e0;border-radius:3px;font-size:10px;color:#444;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.rp-item.expanded .rp-item-content{display:block}
 </style>
 </head>
 <body>
@@ -143,6 +164,14 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
     <button id="inline-chat-send" class="btn" style="padding:2px 8px;font-size:9px;height:20px">전송</button>
     <button id="inline-chat-close" style="background:none;border:none;color:#666;font-size:12px;cursor:pointer;line-height:1">×</button>
   </div>
+</div>
+
+<div id="report-panel">
+  <div class="rp-head" onclick="toggleReportPanel()">
+    <div class="rp-title">Report <span id="rp-badge" class="rp-badge" style="display:none">N</span></div>
+    <button class="rp-minimize" onclick="event.stopPropagation();toggleReportPanel()">−</button>
+  </div>
+  <div class="rp-body" id="rp-body"></div>
 </div>
 
 <div id="nick-modal">
@@ -804,6 +833,7 @@ class Agent{
     }
     updateCard(this.id);
     syncDrawer();
+    if(typeof generateAgentReport==='function')generateAgentReport(this,status,run);
   }
   // SC1 right-click move command
   commandMove(wx,wy){
