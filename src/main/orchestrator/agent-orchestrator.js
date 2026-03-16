@@ -10,6 +10,7 @@ const { MessageBus } = require('./message-bus');
 const { PromptCompiler } = require('./prompt-compiler');
 const { ConversationRouter } = require('./conversation-router');
 const { TaskPlanner } = require('./task-planner');
+const { LeaderLoop } = require('./leader-loop');
 const { parseActions, hasActions, extractPlainText } = require('./action-parser');
 const { CodexAdapter } = require('../engines/codex-adapter');
 const { ClaudeAdapter } = require('../engines/claude-adapter');
@@ -80,6 +81,7 @@ class AgentOrchestrator extends EventEmitter {
     this.agentsFile = path.join(this.projectRoot, '.clawcraft', 'agents.json');
     this.router = new ConversationRouter(this.registry, this.messageBus, this);
     this.planner = new TaskPlanner(this.registry, this.messageBus);
+    this.leaderLoop = null;
     // Forward message bus events to UI
     this.messageBus.on('message', (msg) => {
       this.emitEvent({ type: 'agent.message', message: msg });
@@ -146,6 +148,46 @@ class AgentOrchestrator extends EventEmitter {
   // ═══════════════════════════════════════════════════════════════
   // COLLABORATION MODE — Leader decomposes → Builders execute → Leader reports
   // ═══════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════
+  // LEADER LOOP — persistent leader that continuously plans + delegates
+  // ═══════════════════════════════════════════════════════════════
+  async startLeaderLoop(payload) {
+    const { prompt, leaderId } = payload;
+    if (this.leaderLoop && this.leaderLoop.running) throw new Error('Leader loop already running. Stop first.');
+
+    // Find leader: specified or first agent
+    const agents = this.listAgents().filter(a => !a.locked);
+    let leader;
+    if (leaderId) {
+      leader = this.registry.get(leaderId);
+    } else {
+      leader = agents[0];
+    }
+    if (!leader) throw new Error('No available leader agent');
+    if (agents.length < 2) throw new Error('Need at least 2 agents (1 leader + 1 builder)');
+
+    // Mark leader role
+    leader.role = 'leader';
+    agents.filter(a => a.id !== leader.id).forEach(a => { if (a.role === 'leader') a.role = 'builder'; });
+
+    this.leaderLoop = new LeaderLoop(this);
+    this.leaderLoop.on('cycle', (e) => this.emitEvent({ type: 'leader.cycle', ...e }));
+    this.leaderLoop.on('stopped', (e) => this.emitEvent({ type: 'leader.stopped', ...e }));
+
+    // Run async — don't await (it runs in background)
+    this.leaderLoop.start(String(leader.id), prompt).catch(() => {});
+    this.emitEvent({ type: 'leader.started', leaderId: leader.id, leaderName: leader.displayName || leader.name, mission: prompt });
+    return { leaderId: leader.id, leaderName: leader.displayName || leader.name, status: 'running' };
+  }
+
+  stopLeaderLoop() {
+    if (this.leaderLoop) {
+      this.leaderLoop.stop();
+      return { status: 'stopping' };
+    }
+    return { status: 'not_running' };
+  }
+
   async startCollaboration(payload) {
     const { prompt, taskTitle } = payload;
     const allAgents = this.listAgents().filter(a => !a.locked && a.status === 'idle');

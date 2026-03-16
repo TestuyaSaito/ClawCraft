@@ -151,6 +151,22 @@ async function startRunFromUI(){
     return;
   }
 
+  // Leader Loop mode: persistent leader continuously delegates
+  if(collabMode==='leader-loop'){
+    if(targets.length<2){
+      updateLiveStatus('Leader Loop needs 2+ agents');
+      return;
+    }
+    updateLiveStatus(`♾ LEADER LOOP · ${targets[0].name} commanding ${targets.length-1} builders`);
+    try{
+      const result=await liveAPI.startLeaderLoop({prompt,leaderId:selected.length?String(selected[0].id):undefined});
+      updateLiveStatus(`♾ LEADER LOOP running · Leader: ${result.leaderName}`);
+    }catch(err){
+      updateLiveStatus(`Leader Loop failed: ${err.message}`);
+    }
+    return;
+  }
+
   // Collaborate mode: leader decomposes → builders execute → leader reports
   if(collabMode==='collaborate'&&targets.length>=2){
     updateLiveStatus(`COLLAB · Leader planning, ${targets.length-1} builders standing by`);

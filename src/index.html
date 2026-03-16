@@ -27,6 +27,7 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 .agent-card.done{border-color:#30d060;box-shadow:0 0 6px rgba(48,208,96,.15)}
 .agent-card.failed{border-color:#c74444;box-shadow:0 0 6px rgba(199,68,68,.22)}
 .agent-card.session{border-color:#4a9eff;box-shadow:0 0 10px rgba(74,158,255,.18)}
+.agent-card.selected{border-color:#00ff00;box-shadow:0 0 8px rgba(0,255,0,.3)}
 .agent-card .card-top{display:flex;justify-content:space-between;align-items:center}
 .agent-card .aname{color:#4a9eff;font-weight:bold;font-size:11px}
 .agent-badge{display:inline-block;margin-left:6px;padding:1px 4px;border:1px solid rgba(74,158,255,.45);border-radius:999px;color:#d8ebff;font-size:8px;letter-spacing:.08em;background:rgba(74,158,255,.14);vertical-align:middle}
@@ -100,6 +101,7 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
       <option value="shared-brief">Shared Brief</option>
       <option value="relay">Relay</option>
       <option value="collaborate">Collaborate</option>
+      <option value="leader-loop">Leader Loop ♾</option>
     </select>
     <input class="ctrl-input" id="api-key-input" style="width:140px" placeholder="Gemini API Key" type="password" />
     <button class="btn" id="btn-spawn">+ Agent</button>
@@ -864,6 +866,31 @@ class Agent{
     }
   }
   moveTo(x,y,cb){this.tx=x;this.ty=y;this.mcb=cb;}
+  // Collect obstacles this SCV should avoid (other agents' minerals, buildings, gas)
+  _getObstacles(){
+    const obs=[];
+    const myId=this.id;
+    // Other agents' minerals (radius ~20)
+    agents.forEach(a=>{
+      if(a.id===myId)return;
+      if(a.mx&&a.my)obs.push({x:a.mx,y:a.my,r:22});
+    });
+    // Own mineral — avoid when NOT mining toward it
+    if(this.mx&&this.my&&!(this.state==='building'&&this.miningTarget)){
+      obs.push({x:this.mx,y:this.my,r:22});
+    }
+    // Other agents' buildings (radius ~50)
+    agents.forEach(a=>{
+      if(a.id===myId)return;
+      if(a.progress>0.05)obs.push({x:a.bx,y:a.by,r:55});
+    });
+    // Gas geysers (convert to world coords: same as screen since cam usually ~0)
+    GEYSER_POS.forEach(g=>{
+      const gx=g.mx*WORLD_W,gy=g.my*WORLD_H;
+      obs.push({x:gx,y:gy,r:28});
+    });
+    return obs;
+  }
   doMove(d){
     const dx=this.tx-this.x,dy=this.ty-this.y,dist=Math.sqrt(dx*dx+dy*dy);
     const isMining=this.state==='building'||this.state==='move_to_build';
@@ -874,7 +901,36 @@ class Agent{
       if(this.mcb){const c=this.mcb;this.mcb=null;c();}
       return false;
     }
-    const deg=((Math.atan2(dy,dx)*180/Math.PI)+360)%360;
+    // Base desired direction
+    let mx=dx/dist,my=dy/dist;
+    // Obstacle avoidance — steering force
+    const obstacles=this._getObstacles();
+    let steerX=0,steerY=0;
+    const avoidDist=45; // detection range
+    for(const ob of obstacles){
+      const odx=this.x-ob.x,ody=this.y-ob.y;
+      const oDist=Math.sqrt(odx*odx+ody*ody);
+      const minDist=ob.r+12; // SCV radius ~12
+      if(oDist<avoidDist&&oDist>0.5){
+        // Stronger push the closer we are
+        const strength=(avoidDist-oDist)/avoidDist;
+        const pushX=odx/oDist,pushY=ody/oDist;
+        steerX+=pushX*strength*2.5;
+        steerY+=pushY*strength*2.5;
+        // Hard separation — don't allow overlap
+        if(oDist<minDist){
+          this.x=ob.x+odx/oDist*minDist;
+          this.y=ob.y+ody/oDist*minDist;
+        }
+      }
+    }
+    // Blend steering into movement direction
+    if(steerX!==0||steerY!==0){
+      mx+=steerX;my+=steerY;
+      const len=Math.sqrt(mx*mx+my*my);
+      if(len>0){mx/=len;my/=len;}
+    }
+    const deg=((Math.atan2(my,mx)*180/Math.PI)+360)%360;
     this.tDir=Math.round(deg/22.5)%16;
     const maxSpd=this.state==='patrol'?PATROL_SPEED:isMining?MINING_SPEED:MOVE_SPEED;
     const decelDist=isMining?SCV_DECEL_DIST*2:SCV_DECEL_DIST;
@@ -885,7 +941,7 @@ class Agent{
       this.spd=Math.min(1,this.spd+accel*d);
     }
     const sp=maxSpd*this.spd*d;
-    this.x+=dx/dist*sp;this.y+=dy/dist*sp;
+    this.x+=mx*sp;this.y+=my*sp;
     // CC collision: after built, SCV can't go above CC bottom edge
     if(this.progress>=1&&this.state!=='building'){
       const ccBottom=this.by+18;
@@ -893,7 +949,7 @@ class Agent{
         this.y=ccBottom;
       }
     }
-    // Keep SCV within playable area (avoid map edges, mineral/gas zones on map)
+    // Keep SCV within playable area
     this.x=Math.max(20,Math.min(WORLD_W-20,this.x));
     this.y=Math.max(20,Math.min(WORLD_H-20,this.y));
     this._moving=true;
@@ -1127,12 +1183,33 @@ function clearSelection(){
   selectedAgents.forEach(id=>{
     const a=agents.find(a=>a.id===id);
     if(a)a.selected=false;
+    const c=document.getElementById(`ac-${id}`);
+    if(c)c.classList.remove('selected');
   });
   selectedAgents.clear();
+  closeTaskDrawer();
 }
 function selectAgent(a){
   a.selected=true;
   selectedAgents.add(a.id);
+  const c=document.getElementById(`ac-${a.id}`);
+  if(c)c.classList.add('selected');
+}
+function syncCardSelection(){
+  agents.forEach(a=>{
+    const c=document.getElementById(`ac-${a.id}`);
+    if(!c)return;
+    if(selectedAgents.has(a.id)){
+      c.classList.add('selected');
+    } else {
+      c.classList.remove('selected');
+    }
+  });
+  if(selectedAgents.size===1){
+    openTaskDrawer([...selectedAgents][0]);
+  } else {
+    closeTaskDrawer();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1145,7 +1222,7 @@ const slots=[];
 function initSlots(){
   slots.length=0;
   const cols=4,rows=3;
-  const gx=350,gy=450;
+  const gx=260,gy=320;
   const totalW=(cols-1)*gx,totalH=(rows-1)*gy;
   const baseX=(WORLD_W-totalW)/2,baseY=200;
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)slots.push({x:Math.round(baseX+c*gx),y:Math.round(baseY+r*gy),u:false});
@@ -1315,6 +1392,7 @@ canvas.addEventListener('mouseup',e=>{
       agents.forEach(a=>{
         if(a.x>=x1&&a.x<=x2&&a.y>=y1&&a.y<=y2)selectAgent(a);
       });
+      syncCardSelection();
       if(selectedAgents.size>0){
         if(audioUnlocked){play('select',.3);playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);}
       }
@@ -1328,12 +1406,11 @@ canvas.addEventListener('mouseup',e=>{
       if(hitAgent){
         selectAgent(hitAgent);
         hitAgent.select();
-        openTaskDrawer(hitAgent.id);
       } else if(hitBldgAgent){
         selectAgent(hitBldgAgent);
         hitBldgAgent.select();
-        openTaskDrawer(hitBldgAgent.id);
       }
+      syncCardSelection();
     }
     dragBox=null;
   }
