@@ -99,6 +99,64 @@ function handleLiveEvent(event){
       updateLiveStatus(running>0?`LIVE · ${running} running`:'LIVE · Idle');
     }
   }
+  // Meeting events — move SCVs to meeting point
+  if(event.type==='meeting.gather'){
+    updateLiveStatus(`📋 ${event.meetingType} #${event.cycle} — gathering`);
+    const meetX=W*0.45,meetY=H*0.45; // center meeting point
+    (event.participants||[]).forEach((id,i)=>{
+      const a=findAgent(id);
+      if(!a)return;
+      // Save current position for return
+      a._savedX=a.x;a._savedY=a.y;a._savedState=a.state;
+      // Move to meeting point with slight offset per agent
+      const ox=(i-1)*35,oy=(i%2)*25;
+      a.moveTo(meetX+ox,meetY+oy,null);
+      a.setState('manual_move');
+    });
+  }
+  if(event.type==='meeting.speak'){
+    const a=findAgent(event.agentId);
+    if(a){
+      a.chatBubble=event.text?.slice(0,50)||'...';
+      a.chatBubbleTimer=3;
+    }
+  }
+  if(event.type==='meeting.disperse'){
+    (event.participants||[]).forEach(id=>{
+      const a=findAgent(id);
+      if(!a)return;
+      // Return to saved position
+      if(a._savedX!==undefined){
+        a.moveTo(a._savedX,a._savedY,()=>{
+          if(a._savedState&&a._savedState!=='manual_move')a.state=a._savedState;
+          else a.state='idle';
+        });
+        a.setState('manual_move');
+        a._savedX=undefined;a._savedY=undefined;a._savedState=undefined;
+      }
+    });
+    updateLiveStatus(`📋 Standup done — returning to work`);
+  }
+  if(event.type==='leader.cycle'){
+    updateLiveStatus(`♾ Leader cycle ${event.cycle}`);
+  }
+  if(event.type==='leader.stopped'){
+    updateLiveStatus(`♾ Leader done (${event.cycleCount} cycles)`);
+  }
+  if(event.type==='agent.message'){
+    // Show message as chat bubble on sender
+    const msg=event.message;
+    if(msg&&msg.from&&msg.from!=='system'){
+      const a=findAgent(msg.from);
+      if(a&&msg.text){
+        const clean=msg.text.replace(/```[\s\S]*?```/g,'').replace(/[#*_`]/g,'').trim();
+        if(clean.length>3){
+          a.chatBubble=clean.slice(0,50);
+          a.chatBubbleTimer=4;
+        }
+      }
+    }
+  }
 }
 
 function startAllMock(){

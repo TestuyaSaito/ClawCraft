@@ -60,6 +60,9 @@ class LeaderLoop extends EventEmitter {
       this.cycleCount++;
       this.emit('cycle', { cycle: this.cycleCount });
 
+      // Step 0: Standup meeting — gather all builders for status
+      await this._standup();
+
       // Step 1: Leader thinks — what needs to be done next?
       const planResult = await this._leaderThink();
       if (!planResult || !this.running) break;
@@ -67,7 +70,6 @@ class LeaderLoop extends EventEmitter {
       // Step 2: Parse leader's decision
       const decision = this._parseDecision(planResult);
       if (decision.done) {
-        // Leader says mission complete
         await this._finalReport();
         break;
       }
@@ -214,6 +216,75 @@ class LeaderLoop extends EventEmitter {
       to: 'all', channel: 'radio', kind: 'report',
       text: `🎖 Mission complete after ${this.cycleCount} cycles, ${this.completedTasks.length} tasks completed.`,
     });
+  }
+
+  // Standup meeting — builders gather, report status, then disperse
+  async _standup() {
+    const leader = this.orchestrator.registry.get(this.leaderId);
+    const builders = this.orchestrator.registry.list().filter(a => a.id !== this.leaderId && !a.locked);
+    if (builders.length === 0) return;
+
+    const leaderName = leader?.displayName || leader?.name || 'Leader';
+    const builderIds = builders.map(b => b.id);
+
+    // Emit meeting.gather — UI will move SCVs to meeting point
+    this.orchestrator.emitEvent({
+      type: 'meeting.gather',
+      meetingType: 'standup',
+      cycle: this.cycleCount,
+      leaderId: this.leaderId,
+      participants: [this.leaderId, ...builderIds],
+    });
+
+    this.orchestrator.messageBus.send({
+      from: this.leaderId, fromName: leaderName,
+      to: 'all', channel: 'radio', kind: 'system',
+      text: `📋 Standup #${this.cycleCount} — everyone report status`,
+    });
+
+    // Wait for SCVs to visually gather (UI animation time)
+    await new Promise(r => setTimeout(r, 2000));
+
+    // Each builder gets a quick 1-line status
+    const statusLines = [];
+    for (const b of builders) {
+      const lastTask = this.completedTasks.filter(t => t.builder === (b.displayName || b.name)).slice(-1)[0];
+      const status = b.status === 'running' ? 'working' : lastTask ? `done: ${lastTask.summary.slice(0, 60)}` : 'idle';
+      statusLines.push(`${b.displayName || b.name}: ${status}`);
+
+      // Each builder says their status via radio
+      this.orchestrator.messageBus.send({
+        from: b.id, fromName: b.displayName || b.name,
+        to: 'all', channel: 'radio', kind: 'report',
+        text: status,
+      });
+      this.orchestrator.emitEvent({
+        type: 'meeting.speak',
+        agentId: b.id,
+        agentName: b.displayName || b.name,
+        text: status,
+      });
+
+      await new Promise(r => setTimeout(r, 800)); // pause between speakers
+    }
+
+    // Leader acknowledges
+    this.orchestrator.messageBus.send({
+      from: this.leaderId, fromName: leaderName,
+      to: 'all', channel: 'radio', kind: 'system',
+      text: `📋 Standup #${this.cycleCount} done. ${statusLines.length} reports received.`,
+    });
+
+    // Emit meeting.disperse — UI moves SCVs back
+    this.orchestrator.emitEvent({
+      type: 'meeting.disperse',
+      meetingType: 'standup',
+      cycle: this.cycleCount,
+      participants: [this.leaderId, ...builderIds],
+    });
+
+    // Wait for disperse animation
+    await new Promise(r => setTimeout(r, 1500));
   }
 
   _waitForRun(runId) {
