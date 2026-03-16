@@ -10,6 +10,11 @@ class PromptCompiler {
     this.registry = registry;
     this.messageBus = messageBus;
     this.sharedDir = sharedDir;
+    this._lastPerception = ''; // set before compile() by orchestrator
+  }
+
+  setPerception(perceptionText) {
+    this._lastPerception = perceptionText || '';
   }
 
   // Compile full prompt with team context for a specific agent
@@ -62,6 +67,11 @@ class PromptCompiler {
         ctx += `- **${sender}**${kindTag}: ${(m.text || '').slice(0, 200)}\n`;
       });
       ctx += '\n';
+    }
+
+    // Perception (spatial awareness) — injected if available
+    if (this._lastPerception) {
+      ctx += this._lastPerception;
     }
 
     // Instructions

@@ -138,6 +138,7 @@ body{background:#0a0a1a;overflow:hidden;font-family:'Consolas','Courier New',mon
 </div>
 
 <script src="audio.js"></script>
+<script src="perception.js"></script>
 <script src="ui-panels.js"></script>
 <script src="live-state.js"></script>
 <script>
@@ -664,7 +665,7 @@ class Agent{
     stopWeld(this.id);
     if(opts.progressMode)this.progressMode=opts.progressMode;
     if(typeof opts.targetProgress==='number')this.targetProgress=opts.targetProgress;
-    initAudio();playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);play('click',.3);
+    if(audioUnlocked){playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);play('click',.3);}
     this.manualTimer=0;this.prevAutoState=null;
     if(this.progress>=1){
       // CC already built → go mine minerals
@@ -787,8 +788,9 @@ class Agent{
   }
   // SC1 right-click move command
   commandMove(wx,wy){
-    // Building state SCV cannot be moved
-    if(this.state==='building'||this.state==='demolishing')return false;
+    // Can't move during construction (progress<1) or demolishing
+    if(this.state==='demolishing')return false;
+    if(this.state==='building'&&this.progress<1)return false;
     // Save previous state for autonomous resume
     if(this.state!=='manual_move'&&this.state!=='manual_idle'){
       this.prevAutoState=this.state;
@@ -843,6 +845,9 @@ class Agent{
         this.y=ccBottom;
       }
     }
+    // Keep SCV within playable area (avoid map edges, mineral/gas zones on map)
+    this.x=Math.max(20,Math.min(WORLD_W-20,this.x));
+    this.y=Math.max(20,Math.min(WORLD_H-20,this.y));
     this._moving=true;
     return true;
   }
@@ -1056,7 +1061,7 @@ class Agent{
     }
     ctx.restore();
   }
-  select(){initAudio();play('select',.3);playV(SCV_VOICES[Math.random()*4|0]);}
+  select(){if(audioUnlocked){play('select',.3);playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);}}
   hit(wx,wy){return Math.abs(wx-this.x-8)<28&&Math.abs(wy-this.y-8)<35;}
   hitBldg(wx,wy){
     if(this.progress<=0&&this.state!=='demolishing')return false;
@@ -1092,9 +1097,10 @@ const slots=[];
 function initSlots(){
   slots.length=0;
   const cols=4,rows=3;
-  const baseX=WORLD_W*0.22,baseY=WORLD_H*0.15;
-  const gx=WORLD_W*0.14,gy=WORLD_H*0.22;
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)slots.push({x:baseX+c*gx,y:baseY+r*gy,u:false});
+  const gx=140,gy=180;
+  const totalW=(cols-1)*gx,totalH=(rows-1)*gy;
+  const baseX=(WORLD_W-totalW)/2,baseY=60;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)slots.push({x:Math.round(baseX+c*gx),y:Math.round(baseY+r*gy),u:false});
 }
 initSlots();
 window.addEventListener('resize',()=>{initSlots();});
@@ -1211,6 +1217,24 @@ canvas.addEventListener('mousedown',e=>{
     const sy=e.clientY-44;
     dragBox={sx,sy,ex:sx,ey:sy,started:false};
   }
+  if(e.button===2){
+    e.preventDefault();
+    e.stopPropagation();
+    const wx=e.clientX+cam.x;
+    const wy=e.clientY-44+cam.y;
+    console.log('[RC] button=2, selected=',selectedAgents.size,'wx=',wx,'wy=',wy);
+    let movedAny=false;
+    selectedAgents.forEach(id=>{
+      const a=agents.find(a=>a.id===id);
+      console.log('[RC] agent',id,a?.name,'state=',a?.state,'progress=',a?.progress);
+      if(a&&a.commandMove(wx,wy))movedAny=true;
+    });
+    console.log('[RC] movedAny=',movedAny);
+    if(movedAny){
+      if(audioUnlocked)playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);
+      moveMarkers.push({x:wx,y:wy,t:0,cycle:MARKER_CYCLES[Math.random()*MARKER_CYCLES.length|0]});
+    }
+  }
 });
 
 canvas.addEventListener('mousemove',e=>{
@@ -1244,9 +1268,7 @@ canvas.addEventListener('mouseup',e=>{
         if(a.x>=x1&&a.x<=x2&&a.y>=y1&&a.y<=y2)selectAgent(a);
       });
       if(selectedAgents.size>0){
-        initAudio();play('select',.3);
-        const first=agents.find(a=>a.selected);
-        if(first)playV(SCV_VOICES[Math.random()*4|0]);
+        if(audioUnlocked){play('select',.3);playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);}
       }
     } else {
       // Single left click
@@ -1267,47 +1289,29 @@ canvas.addEventListener('mouseup',e=>{
     }
     dragBox=null;
   }
-  if(e.button===2){
-    // Right click — SC1 move command
-    const wx=e.clientX+cam.x;
-    const wy=e.clientY-44+cam.y;
-    let movedAny=false;
-    selectedAgents.forEach(id=>{
-      const a=agents.find(a=>a.id===id);
-      if(a&&a.commandMove(wx,wy))movedAny=true;
-    });
-    if(movedAny){
-      initAudio();
-      playVNow(SCV_VOICES[Math.random()*SCV_VOICES.length|0]);
-      moveMarkers.push({x:wx,y:wy,t:0,cycle:MARKER_CYCLES[Math.random()*MARKER_CYCLES.length|0]});
-    }
-  }
+  // Right click handled in mousedown for Electron compatibility
   mouse.down=false;mouse.button=-1;
 });
 
-canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();return false;});
+document.addEventListener('contextmenu',e=>{if(e.target===canvas||canvas.contains(e.target)){e.preventDefault();}});
 document.getElementById('btn-spawn').onclick=async ()=>{
   if(!audioUnlocked){audioUnlocked=true;initAudio();}
   const engine=document.getElementById('agent-engine').value;
-  if(!liveMode){
-    spawnAgent({engine,model:engine==='claude'?'demo-opus':'demo'});
-    return;
-  }
-  const seedId=nextId;
   const modelMap={codex:'gpt-5',claude:'opus-5.4',gemini:'auto-gemini-3'};
   const nameMap={codex:'Codex',claude:'Claude',gemini:'Gemini'};
-  const payload={id:seedId,name:`${nameMap[engine]||engine}-${String(seedId).padStart(2,'0')}`,engine,model:modelMap[engine]||'default'};
-  try{
-    updateLiveStatus(`Creating ${payload.name}...`);
-    const agent=await liveAPI.createAgent(payload);
-    ensureRemoteAgent(agent);
-    updCnt();
-    updateLiveStatus(`LIVE · ${payload.name} ready`);
-  }catch(err){
-    updateLiveStatus(`Spawn failed: ${err.message}`);
-    console.error('Agent spawn error:',err);
-    // Fallback: create locally if live fails
-    spawnAgent({engine,model:modelMap[engine]||'demo',name:payload.name});
+  const name=`${nameMap[engine]||engine}-${String(nextId).padStart(2,'0')}`;
+  // Always create locally first so it appears immediately
+  const id=spawnAgent({engine,model:modelMap[engine]||'demo',name});
+  // If live mode, also register with backend (non-blocking)
+  if(liveMode&&liveAPI.createAgent){
+    liveAPI.createAgent({id,name,engine,model:modelMap[engine]||'default'}).then(agent=>{
+      const local=findAgent(id);
+      if(local)local.syncMeta(agent);
+      updateLiveStatus(`LIVE · ${name} ready`);
+    }).catch(err=>{
+      console.warn('Backend agent create failed:',err.message);
+    });
   }
 };
 document.getElementById('btn-start').onclick=()=>{void startRunFromUI();};
@@ -1507,6 +1511,38 @@ function renderGameToText(){
   return JSON.stringify(payload);
 }
 window.render_game_to_text=renderGameToText;
+
+// World objects list for perception
+function getWorldObjects(){
+  const objs=[];
+  // Agents/SCVs
+  agents.forEach(a=>{
+    objs.push({type:'agent',id:a.id,name:a.nickname||a.displayName||a.name,label:a.nickname||a.displayName||a.name,x:a.x,y:a.y,engine:a.engine,status:a.runStatus});
+  });
+  // Buildings (command centers)
+  agents.forEach(a=>{
+    if(a.progress>0.01)objs.push({type:'building',id:`bldg-${a.id}`,label:`${a.nickname||a.name}'s CC`,x:a.bx,y:a.by,progress:a.progress});
+  });
+  // Minerals
+  agents.forEach(a=>{
+    if(a.mx&&a.my)objs.push({type:'mineral',id:`mineral-${a.id}`,label:'Mineral',x:a.mx,y:a.my});
+  });
+  // Gas geysers
+  GEYSER_POS.forEach((g,i)=>{
+    const sc=Math.max(W/MAP_IMG_W,H/MAP_IMG_H);
+    const mw=MAP_IMG_W*sc,mh=MAP_IMG_H*sc;
+    const ox=(W-mw)/2,oy=(H-mh)/2;
+    objs.push({type:'gas',id:`gas-${i}`,label:'Vespene Geyser',x:ox+g.mx*mw,y:oy+g.my*mh});
+  });
+  return objs;
+}
+function getAgentPerception(agentId){
+  const a=findAgent(agentId);
+  if(!a)return null;
+  return buildPerception(a,getWorldObjects(),400);
+}
+window.getAgentPerception=getAgentPerception;
+window.getWorldObjects=getWorldObjects;
 window.advanceTime=(ms)=>{
   let remaining=Math.max(0,ms)/1000;
   while(remaining>0){

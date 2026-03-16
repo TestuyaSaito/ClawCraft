@@ -193,7 +193,7 @@ function addCard(a){
     e.stopPropagation();
     const agent=findAgent(a.id);
     if(!agent)return;
-    const nick=prompt('닉네임 입력:',agent.nickname||agent.displayName||'');
+    const nick=window.prompt('Enter nickname:',agent.nickname||agent.displayName||'');
     if(nick===null)return;
     agent.nickname=nick;
     agent.displayName=nick;

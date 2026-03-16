@@ -36,13 +36,27 @@ function registerIpcHandlers() {
   ipcMain.handle('state:get', async () => orchestrator.getState());
   ipcMain.handle('agent:create', async (_event, payload) => orchestrator.createAgent(payload));
   ipcMain.handle('agent:remove', async (_event, agentId) => orchestrator.removeAgent(agentId));
-  ipcMain.handle('run:start', async (_event, payload) => orchestrator.startRun(payload));
+  ipcMain.handle('run:start', async (_event, payload) => {
+    // Auto lookAround before starting run
+    if (mainWindow && !mainWindow.isDestroyed() && payload.agentId) {
+      try {
+        const perception = await mainWindow.webContents.executeJavaScript(`(function(){const p=getAgentPerception('${payload.agentId}');return p?perceptionToText(p):'';})()`);
+        if (perception) payload._perceptionText = perception;
+      } catch {}
+    }
+    return orchestrator.startRun(payload);
+  });
   ipcMain.handle('run:cancel', async (_event, runId) => orchestrator.cancelRun(runId));
   ipcMain.handle('run:relay', async (_event, payload) => orchestrator.startRelay(payload));
   ipcMain.handle('workspace:diff', async (_event, agentId) => orchestrator.getAgentDiff(agentId));
   ipcMain.handle('message:send', async (_event, payload) => orchestrator.sendMessage(payload));
   ipcMain.handle('message:list', async (_event, agentId, limit) => orchestrator.listMessages(agentId, limit));
   ipcMain.handle('agent:context', async (_event, agentId) => orchestrator.getAgentContextPack(agentId));
+  ipcMain.handle('agent:perception', async (_event, agentId) => {
+    // Get perception from renderer via webContents
+    if (!mainWindow || mainWindow.isDestroyed()) return null;
+    return mainWindow.webContents.executeJavaScript(`getAgentPerception('${agentId}')`);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -105,6 +119,11 @@ function startBridge() {
             break;
           case 'getContext':
             result = orchestrator.getAgentContextPack(msg.agentId);
+            break;
+          case 'lookAround':
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              result = await mainWindow.webContents.executeJavaScript(`getAgentPerception('${msg.agentId}')`);
+            }
             break;
           case 'listAgents':
             result = orchestrator.listAgents();

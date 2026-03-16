@@ -234,6 +234,12 @@ class AgentOrchestrator extends EventEmitter {
     };
     // 3단계: prepend shared context to prompt (skip for solo mode)
     const mode = payload.mode || 'solo';
+    // Inject perception if available (set by caller or lookAround)
+    if (payload._perceptionText) {
+      this.promptCompiler.setPerception(payload._perceptionText);
+    } else {
+      this.promptCompiler.setPerception('');
+    }
     const fullPrompt = this.promptCompiler.compile(agentId, payload.prompt, mode);
 
     const runId = `run_${Date.now()}_${agentId}`;
