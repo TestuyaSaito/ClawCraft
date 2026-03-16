@@ -104,10 +104,7 @@ class AgentOrchestrator extends EventEmitter {
   }
 
   _ensurePrimarySessionAgent() {
-    const primarySessionAgent = buildPrimarySessionAgent();
-    if (primarySessionAgent) {
-      this.createAgent(primarySessionAgent);
-    }
+    // Disabled — no auto-created session agents
   }
 
   _pruneLegacySessionAgents() {
@@ -196,8 +193,8 @@ class AgentOrchestrator extends EventEmitter {
   }
 
   registerSessionClient(client = {}) {
-    if (!client || (!client.sessionId && !client.threadId && !client.termSessionId)) return null;
-    return this.createAgent(buildSessionAgent(client));
+    // No auto-registration — agents created explicitly via UI or bridge
+    return null;
   }
 
   async removeAgent(agentId) {

@@ -1,17 +1,5 @@
 [
   {
-    "id": "1773646769965",
-    "sessionId": "1773646769965",
-    "name": "Claude-Opus5.4",
-    "engine": "claude",
-    "model": "opus-5.4",
-    "role": "builder",
-    "teamId": "terran-alpha",
-    "locked": false,
-    "sessionKind": "",
-    "taskTitle": "Waiting"
-  },
-  {
     "id": "codex-cli-019cf231-4869-73a2-8e29-05e84b02b630",
     "sessionId": "codex-cli-019cf231-4869-73a2-8e29-05e84b02b630",
     "name": "Codex CLI",
@@ -36,18 +24,6 @@
     "taskTitle": "Talking with you in CLI 16D62D0E"
   },
   {
-    "id": "2",
-    "sessionId": "2",
-    "name": "Agent-02",
-    "engine": "codex",
-    "model": "gpt-5",
-    "role": "builder",
-    "teamId": "terran-alpha",
-    "locked": false,
-    "sessionKind": "",
-    "taskTitle": "Waiting"
-  },
-  {
     "id": "codex-cli-709b5a22-5637-494d-b4c9-7fcee5d12b28",
     "sessionId": "codex-cli-709b5a22-5637-494d-b4c9-7fcee5d12b28",
     "name": "Codex CLI",
@@ -58,5 +34,17 @@
     "locked": true,
     "sessionKind": "codex-cli",
     "taskTitle": "Talking with you in CLI 709B5A22"
+  },
+  {
+    "id": "2",
+    "sessionId": "2",
+    "name": "Gemini-02",
+    "engine": "gemini",
+    "model": "auto-gemini-3",
+    "role": "builder",
+    "teamId": "terran-alpha",
+    "locked": false,
+    "sessionKind": "",
+    "taskTitle": "Waiting"
   }
 ]

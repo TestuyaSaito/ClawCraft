@@ -183,8 +183,8 @@ function formatAgentIdTag(id){
 function addCard(a){
   const bt=BLDG_TYPES.find(b=>b.id===a.bt);const d=document.createElement('div');
   d.className='agent-card';d.id=`ac-${a.id}`;
-  const badge=String(a.sessionKind||'').startsWith('codex-cli')?'<span class="agent-badge">YOU</span>':'';
-  const removeButton=a.locked?'':`<button class="abtn-remove" title="Remove SCV">✕</button>`;
+  const badge='';
+  const removeButton=`<button class="abtn-remove" title="Remove SCV">✕</button>`;
   d.innerHTML=`<div class="card-top"><div class="aname">${a.name}${badge}<span style="color:#556;font-size:9px;font-weight:normal"> (${formatAgentIdTag(a.id)})</span></div><div style="display:flex;gap:2px">${removeButton}<button class="abtn-stop" title="Emergency stop" style="background:none;border:none;color:#664444;font-size:10px;cursor:pointer;display:none">⏹</button></div></div><div class="astatus">Idle</div><div class="aengine">${fmtEngine(a.engine||'mock',a.model||'demo')}</div><div class="abldg">${bt.name}</div><div class="atask">Waiting</div><div class="pbar"><div class="pfill"></div></div>`;
   const removeEl=d.querySelector('.abtn-remove');
   if(removeEl)removeEl.onclick=(e)=>{e.stopPropagation();void removeAgent(a.id);};
