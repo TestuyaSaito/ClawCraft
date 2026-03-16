@@ -63,7 +63,15 @@ class WorkspaceManager {
 
   createWorktree(agentId) {
     if (!this.isGitRepo()) {
-      throw new Error('프로젝트가 Git 저장소가 아닙니다. 병렬 worktree를 생성할 수 없습니다.');
+      // Auto-init git repo for non-git project folders
+      try {
+        execSync('git init', { cwd: this.projectRoot, encoding: 'utf8', stdio: 'pipe' });
+        execSync('git add -A', { cwd: this.projectRoot, encoding: 'utf8', stdio: 'pipe' });
+        execSync('git commit -m "Initial commit by ClawCraft" --allow-empty', { cwd: this.projectRoot, encoding: 'utf8', stdio: 'pipe' });
+        console.log(`[WorkspaceManager] Auto-initialized git repo at ${this.projectRoot}`);
+      } catch (err) {
+        throw new Error(`Git 초기화 실패: ${err.message}`);
+      }
     }
     const branch = `agent/${agentId}`;
     const worktreeDir = path.join(this.worktreesDir, `agent-${agentId}`);
