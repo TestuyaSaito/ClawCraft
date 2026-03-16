@@ -14,6 +14,10 @@ class AgentRegistry {
     const existing = this.agents.get(id);
     if (existing) {
       Object.assign(existing, this._patch(payload));
+      // If nickname changed, rebuild aliases
+      if (payload.nickname && payload.nickname !== existing.displayName) {
+        this.setNickname(id, payload.nickname);
+      }
       return existing;
     }
     // Ensure unique name
@@ -36,9 +40,10 @@ class AgentRegistry {
       id,
       sessionId: payload.sessionId || id,
       name,
-      displayName: payload.displayName || name,
+      nickname: payload.nickname || '',
+      displayName: payload.displayName || payload.nickname || name,
       callSign,
-      aliases: payload.aliases || [name, callSign, `@${callSign}`, `@${name}`],
+      aliases: payload.aliases || [...new Set([name, payload.nickname, callSign].filter(Boolean))].flatMap(n=>[n,`@${n}`]),
       engine: payload.engine || 'codex',
       model: payload.model || 'gpt-5.4',
       role: payload.role || 'builder',
@@ -162,6 +167,10 @@ class AgentRegistry {
   _patch(p) {
     const out = {};
     if (p.name) out.name = p.name;
+    if (p.displayName) out.displayName = p.displayName;
+    if (p.nickname) out.nickname = p.nickname;
+    if (p.callSign) out.callSign = p.callSign;
+    if (p.aliases) out.aliases = p.aliases;
     if (p.engine) out.engine = p.engine;
     if (p.model) out.model = p.model;
     if (p.role) out.role = p.role;

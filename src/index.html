@@ -1687,7 +1687,7 @@ function saveRendererState(){
     _taskTitle:a.taskTitle||'',
     _vDir:Math.round(a.vDir||0),
   }));
-  liveAPI.saveRendererState(state).catch(()=>{});
+  liveAPI.saveRendererState(state).catch(err=>{console.error('[AutoSave] Failed:',err.message);});
 }
 // Auto-save every 10 seconds
 setInterval(saveRendererState,10000);
