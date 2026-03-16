@@ -222,6 +222,13 @@ app.on('activate', () => {
 app.on('before-quit', async (e) => {
   if (orchestrator) {
     e.preventDefault();
+    // Flush renderer state before quitting
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        const state = await mainWindow.webContents.executeJavaScript(`(function(){return agents.map(a=>({id:a.id,_sx:Math.round(a.x),_sy:Math.round(a.y),_bx:Math.round(a.bx),_by:Math.round(a.by),_mx:Math.round(a.mx||0),_my:Math.round(a.my||0),nickname:a.nickname||'',displayName:a.displayName||'',_progress:Number(a.progress.toFixed(3)),_state:a.state,_runStatus:a.runStatus||'idle',_taskTitle:a.taskTitle||'',_vDir:Math.round(a.vDir||0)}));})()`);
+        if (state && state.length) orchestrator.saveRendererState(state);
+      } catch {}
+    }
     if (wss) wss.close();
     await orchestrator.shutdown();
     app.exit(0);
