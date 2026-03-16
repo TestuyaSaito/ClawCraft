@@ -8,6 +8,27 @@ const engineStatuses=new Map();
 let drawerAgentId=null;
 let liveConstraint='mock';
 let bootstrapped=false;
+let chatMsgCount=0;
+
+// Team chat log — visible on screen
+function appendChatLog(icon,name,text,kind){
+  const body=document.getElementById('chat-body');
+  if(!body)return;
+  const cls='chat-msg'+(kind?` cm-${kind}`:'');
+  const kindLabel=kind&&kind!=='chat'?`<span class="cm-kind">[${kind}]</span>`:'';
+  const div=document.createElement('div');
+  div.className=cls;
+  div.innerHTML=`${icon?icon+' ':''}<span class="cm-name">${name}</span>${kindLabel} <span class="cm-text">${(text||'').slice(0,200)}</span>`;
+  body.appendChild(div);
+  // Auto scroll to bottom
+  body.scrollTop=body.scrollHeight;
+  // Keep max 100 messages
+  while(body.children.length>100)body.removeChild(body.firstChild);
+  // Update badge
+  chatMsgCount++;
+  const badge=document.getElementById('chat-badge');
+  if(badge)badge.textContent=String(Math.min(chatMsgCount,99));
+}
 
 function openSessionAgentIfPresent(){
   // No auto-open — user selects agents manually
@@ -90,9 +111,11 @@ function handleLiveEvent(event){
     const running=agents.filter(a=>a.runStatus==='running').length;
     if(event.type==='run.started'){
       updateLiveStatus(running>1?`LIVE · ${running} agents running`:`LIVE · ${event.agent?.name||'agent'} running`);
+      appendChatLog('🔨',event.agent?.name||'Agent',`Started: ${event.run?.taskTitle||'task'}`,'system');
     }
     if(event.type==='run.completed'){
       updateLiveStatus(running>0?`LIVE · ${running} running`:'LIVE · Idle');
+      appendChatLog('✅',event.agent?.name||'Agent','Task completed','report');
     }
     if(event.type==='run.failed')updateLiveStatus(`Failed · ${event.errorText||'run failed'}`);
     if(event.type==='run.cancelled'){
@@ -102,13 +125,12 @@ function handleLiveEvent(event){
   // Meeting events — move SCVs to meeting point
   if(event.type==='meeting.gather'){
     updateLiveStatus(`📋 ${event.meetingType} #${event.cycle} — gathering`);
-    const meetX=W*0.45,meetY=H*0.45; // center meeting point
+    appendChatLog('📋','System',`Standup #${event.cycle} — gathering`,'meeting');
+    const meetX=W*0.45,meetY=H*0.45;
     (event.participants||[]).forEach((id,i)=>{
       const a=findAgent(id);
       if(!a)return;
-      // Save current position for return
       a._savedX=a.x;a._savedY=a.y;a._savedState=a.state;
-      // Move to meeting point with slight offset per agent
       const ox=(i-1)*35,oy=(i%2)*25;
       a.moveTo(meetX+ox,meetY+oy,null);
       a.setState('manual_move');
@@ -119,13 +141,14 @@ function handleLiveEvent(event){
     if(a){
       a.chatBubble=event.text?.slice(0,50)||'...';
       a.chatBubbleTimer=3;
+      appendChatLog('💬',event.agentName||a.nickname||a.name,event.text||'...','report');
     }
   }
   if(event.type==='meeting.disperse'){
+    appendChatLog('📋','System','Standup done — back to work','meeting');
     (event.participants||[]).forEach(id=>{
       const a=findAgent(id);
       if(!a)return;
-      // Return to saved position
       if(a._savedX!==undefined){
         a.moveTo(a._savedX,a._savedY,()=>{
           if(a._savedState&&a._savedState!=='manual_move')a.state=a._savedState;
@@ -139,23 +162,38 @@ function handleLiveEvent(event){
   }
   if(event.type==='leader.cycle'){
     updateLiveStatus(`♾ Leader cycle ${event.cycle}`);
+    appendChatLog('♾','Leader',`Cycle ${event.cycle} starting`,'system');
   }
   if(event.type==='leader.stopped'){
     updateLiveStatus(`♾ Leader done (${event.cycleCount} cycles)`);
+    appendChatLog('✅','Leader',`Mission complete (${event.cycleCount} cycles)`,'report');
   }
   if(event.type==='agent.message'){
-    // Show message as chat bubble on sender
     const msg=event.message;
-    if(msg&&msg.from&&msg.from!=='system'){
-      const a=findAgent(msg.from);
-      if(a&&msg.text){
-        const clean=msg.text.replace(/```[\s\S]*?```/g,'').replace(/[#*_`]/g,'').trim();
-        if(clean.length>3){
-          a.chatBubble=clean.slice(0,50);
-          a.chatBubbleTimer=4;
+    if(msg&&msg.text){
+      const name=msg.fromName||msg.from||'System';
+      const clean=msg.text.replace(/```[\s\S]*?```/g,'').replace(/[#*_`]/g,'').trim();
+      if(clean.length>2){
+        appendChatLog('',name,clean,msg.kind||'chat');
+        // Chat bubble on sender SCV
+        if(msg.from&&msg.from!=='system'){
+          const a=findAgent(msg.from);
+          if(a){a.chatBubble=clean.slice(0,50);a.chatBubbleTimer=4;}
         }
       }
     }
+  }
+  // Action events from protocol
+  if(event.type?.startsWith('action.')){
+    const kind=event.type.replace('action.','');
+    const a=findAgent(event.agentId);
+    const name=a?.nickname||a?.name||'Agent';
+    if(kind==='delegate')appendChatLog('📤',name,`→ @${event.target}: ${event.task||''}`,'delegate');
+    if(kind==='report')appendChatLog('✅',name,`[${event.status}] ${event.summary||''}`,'report');
+    if(kind==='blocker')appendChatLog('⚠',name,`BLOCKED: ${event.issue||''}`,'blocker');
+    if(kind==='request-review')appendChatLog('🔍',name,`Review requested → @${event.target}`,'system');
+    if(kind==='review-result')appendChatLog('📝',name,`Review: ${event.verdict} — ${event.notes||''}`,'report');
+    if(kind==='handoff')appendChatLog('🔄',name,`Handoff → @${event.target}`,'delegate');
   }
 }
 
