@@ -94,7 +94,7 @@ class LeaderLoop extends EventEmitter {
   async _leaderThink() {
     const leader = this.orchestrator.registry.get(this.leaderId);
     const builders = this.orchestrator.registry.list().filter(a => a.id !== this.leaderId && !a.locked && a.role !== 'leader');
-    const builderNames = builders.map(b => b.displayName || b.name);
+    const builderNames = builders.map(b => b.nickname || b.displayName || b.name);
     const recentMessages = this.orchestrator.messageBus.getRecent({ limit: 10 });
 
     let prompt = `You are the LEADER SCV in continuous command mode. Cycle ${this.cycleCount}.\n\n`;
@@ -106,7 +106,13 @@ class LeaderLoop extends EventEmitter {
       prompt += '\n';
     }
 
-    prompt += `## Available builders\n${builderNames.map(n => `- ${n}`).join('\n')}\n\n`;
+    prompt += `## Available builders\n`;
+    builders.forEach(b => {
+      const nick = b.nickname || b.displayName || b.name;
+      const specialty = { codex: 'coding specialist', claude: 'analysis/review specialist', gemini: 'research/search specialist' };
+      prompt += `- **${nick}** (${b.engine}/${b.model}) — ${specialty[b.engine] || 'general'}, status: ${b.status}\n`;
+    });
+    prompt += `\nIMPORTANT: Use the exact nickname above when delegating with ACTION:delegate target="nickname"\n\n`;
 
     if (recentMessages.length > 0) {
       prompt += `## Recent radio\n`;

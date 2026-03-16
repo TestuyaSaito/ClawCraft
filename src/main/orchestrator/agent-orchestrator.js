@@ -799,6 +799,15 @@ class AgentOrchestrator extends EventEmitter {
     }
   }
 
+  setAgentNickname(agentId, nickname) {
+    const agent = this.registry.setNickname(String(agentId), nickname);
+    if (agent) {
+      this._persistAgents();
+      this.emitEvent({ type: 'agent.updated', agent: { ...agent } });
+    }
+    return agent;
+  }
+
   getAgentContextPack(agentId) {
     const agent = this.registry.get(agentId);
     if (!agent) return '';

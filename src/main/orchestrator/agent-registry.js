@@ -72,6 +72,18 @@ class AgentRegistry {
     return this.list().filter(a => a.teamId === (teamId || DEFAULT_TEAM));
   }
 
+  // Set nickname — updates displayName, nickname, aliases
+  setNickname(id, nickname) {
+    const agent = this.get(id);
+    if (!agent) return null;
+    agent.nickname = nickname;
+    agent.displayName = nickname;
+    // Rebuild aliases to include nickname
+    const names = new Set([agent.name, nickname, agent.callSign]);
+    agent.aliases = [...names].flatMap(n => [n, `@${n}`]).filter(Boolean);
+    return agent;
+  }
+
   // Resolve @mention or name to agent
   resolveByMention(mention) {
     const clean = mention.replace(/^@/, '').trim().toLowerCase();
@@ -101,10 +113,11 @@ class AgentRegistry {
     const me = this.get(agentId);
     if (!me) return null;
     const teammates = this.list().filter(a => a.id !== String(agentId) && a.teamId === me.teamId);
+    const nick = (a) => a.nickname || a.displayName || a.name;
     return {
       self: {
         id: me.id,
-        name: me.name,
+        name: nick(me),
         engine: me.engine,
         model: me.model,
         role: me.role,
@@ -114,7 +127,7 @@ class AgentRegistry {
       },
       teammates: teammates.map(a => ({
         id: a.id,
-        name: a.name,
+        name: nick(a),
         engine: a.engine,
         model: a.model,
         role: a.role,

@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('clawcraft', {
   listMessages: (agentId, limit) => ipcRenderer.invoke('message:list', agentId, limit),
   getAgentContext: (agentId) => ipcRenderer.invoke('agent:context', agentId),
   lookAround: (agentId) => ipcRenderer.invoke('agent:perception', agentId),
+  setNickname: (agentId, nickname) => ipcRenderer.invoke('agent:setNickname', agentId, nickname),
   selectProjectFolder: () => ipcRenderer.invoke('project:selectFolder'),
   getProjectPath: () => ipcRenderer.invoke('project:getPath'),
   onEvent: (handler) => {
