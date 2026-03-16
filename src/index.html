@@ -1252,8 +1252,9 @@ function spawnAgent(options){
   }
   const a=new Agent(id,n,sx,sy,sl.x,sl.y,bt,meta);
   // Restore saved state
-  if(meta._progress!==undefined)a.progress=meta._progress;
-  if(meta._state&&meta._state!=='manual_move')a.state=meta._state;
+  if(meta._progress!==undefined&&meta._progress>0)a.progress=meta._progress;
+  // Only override state if it's meaningful (not idle — idle is default)
+  if(meta._state&&meta._state!=='idle'&&meta._state!=='manual_move')a.state=meta._state;
   if(meta._runStatus)a.runStatus=meta._runStatus;
   if(meta._taskTitle)a.taskTitle=meta._taskTitle;
   if(meta._vDir!==undefined)a.vDir=meta._vDir;

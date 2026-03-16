@@ -227,7 +227,8 @@ app.on('before-quit', async (e) => {
       try {
         const state = await mainWindow.webContents.executeJavaScript(`(function(){return agents.map(a=>({id:a.id,_sx:Math.round(a.x),_sy:Math.round(a.y),_bx:Math.round(a.bx),_by:Math.round(a.by),_mx:Math.round(a.mx||0),_my:Math.round(a.my||0),nickname:a.nickname||'',displayName:a.displayName||'',_progress:Number(a.progress.toFixed(3)),_state:a.state,_runStatus:a.runStatus||'idle',_taskTitle:a.taskTitle||'',_vDir:Math.round(a.vDir||0)}));})()`);
         if (state && state.length) orchestrator.saveRendererState(state);
-      } catch {}
+        console.log(`[Quit] Saved ${state?.length||0} agents`);
+      } catch (err) { console.error('[Quit] Failed to save renderer state:', err.message); }
     }
     if (wss) wss.close();
     await orchestrator.shutdown();

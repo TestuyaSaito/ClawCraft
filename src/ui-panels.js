@@ -342,6 +342,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(liveMode&&liveAPI.setNickname){
       liveAPI.setNickname(String(_nickAgent.id),nick).catch(()=>{});
     }
+    // Immediately save renderer state so nickname persists
+    if(typeof saveRendererState==='function')saveRendererState();
     document.getElementById('nick-modal').classList.remove('open');
     _nickAgent=null;
   });
