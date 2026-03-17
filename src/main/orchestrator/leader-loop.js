@@ -109,10 +109,13 @@ class LeaderLoop extends EventEmitter {
     prompt += `## Available builders\n`;
     builders.forEach(b => {
       const nick = b.nickname || b.displayName || b.name;
-      const specialty = { codex: 'coding specialist', claude: 'analysis/review specialist', gemini: 'research/search specialist' };
-      prompt += `- **${nick}** (${b.engine}/${b.model}) — ${specialty[b.engine] || 'general'}, status: ${b.status}\n`;
+      const top = this.orchestrator.registry.topSkills(b);
+      const skillStr = top.length ? top.join(', ') : 'general';
+      prompt += `- **${nick}** (${b.engine}/${b.model}) — best at: ${skillStr}, status: ${b.status}\n`;
     });
-    prompt += `\nIMPORTANT: Use the exact nickname above when delegating with ACTION:delegate target="nickname"\n\n`;
+    prompt += `\nIMPORTANT:\n`;
+    prompt += `- Use the exact nickname when delegating: ACTION:delegate target="nickname"\n`;
+    prompt += `- Match tasks to skills: give frontend work to the frontend specialist, testing to the tester, etc.\n\n`;
 
     if (recentMessages.length > 0) {
       prompt += `## Recent radio\n`;

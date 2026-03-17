@@ -36,7 +36,8 @@ class PromptCompiler {
       ctx += `## Visible teammates\n`;
       presence.teammates.forEach(t => {
         const statusMap = { running: 'working', idle: 'idle', failed: 'failed' };
-        ctx += `- **${t.name}** (ID:${t.id}) — ${t.engine}/${t.model}, status=${statusMap[t.status] || t.status}`;
+        const skillStr = t.topSkills?.length ? `, skills: ${t.topSkills.join('/')}` : '';
+        ctx += `- **${t.name}** (${t.engine}/${t.model}) — status=${statusMap[t.status] || t.status}${skillStr}`;
         if (t.taskTitle && t.taskTitle !== 'Waiting') ctx += `, task="${t.taskTitle}"`;
         ctx += '\n';
       });

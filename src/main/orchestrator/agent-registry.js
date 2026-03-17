@@ -52,6 +52,7 @@ class AgentRegistry {
       locked: !!payload.locked,
       sessionKind: payload.sessionKind || '',
       taskTitle: payload.taskTitle || 'Waiting',
+      skills: payload.skills || this._defaultSkills(payload.engine || 'codex'),
       status: 'idle',
       currentRunId: null,
       slot: payload.slot || null,
@@ -136,6 +137,8 @@ class AgentRegistry {
         engine: a.engine,
         model: a.model,
         role: a.role,
+        skills: a.skills,
+        topSkills: this.topSkills(a),
         status: a.status,
         taskTitle: a.taskTitle,
       })),
@@ -159,6 +162,7 @@ class AgentRegistry {
       displayName: a.displayName, nickname: a.nickname, callSign: a.callSign,
       aliases: a.aliases,
       engine: a.engine, model: a.model, role: a.role,
+      skills: a.skills,
       teamId: a.teamId, locked: a.locked,
       sessionKind: a.sessionKind, taskTitle: a.taskTitle,
     }));
@@ -171,6 +175,7 @@ class AgentRegistry {
     if (p.nickname) out.nickname = p.nickname;
     if (p.callSign) out.callSign = p.callSign;
     if (p.aliases) out.aliases = p.aliases;
+    if (p.skills) out.skills = p.skills;
     if (p.engine) out.engine = p.engine;
     if (p.model) out.model = p.model;
     if (p.role) out.role = p.role;
@@ -180,6 +185,28 @@ class AgentRegistry {
     if (p.taskTitle) out.taskTitle = p.taskTitle;
     if (p.workspace) out.workspace = p.workspace;
     return out;
+  }
+
+  _defaultSkills(engine) {
+    const defaults = {
+      codex:  { frontend: 0.8, backend: 0.9, testing: 0.7, debugging: 0.8, review: 0.5, planning: 0.4, integration: 0.6 },
+      claude: { frontend: 0.7, backend: 0.7, testing: 0.6, debugging: 0.7, review: 0.9, planning: 0.8, integration: 0.7 },
+      gemini: { frontend: 0.5, backend: 0.5, testing: 0.5, debugging: 0.5, review: 0.6, planning: 0.6, integration: 0.5 },
+    };
+    return defaults[engine] || { frontend: 0.5, backend: 0.5, testing: 0.5, debugging: 0.5, review: 0.5, planning: 0.5, integration: 0.5 };
+  }
+
+  // Find best agent for a skill
+  bestForSkill(skill, exclude = []) {
+    const candidates = this.list().filter(a => !a.locked && a.status === 'idle' && !exclude.includes(a.id));
+    if (!candidates.length) return null;
+    return candidates.sort((a, b) => (b.skills?.[skill] || 0) - (a.skills?.[skill] || 0))[0];
+  }
+
+  // Get top skills for display (top 2)
+  topSkills(agent) {
+    if (!agent?.skills) return [];
+    return Object.entries(agent.skills).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => k);
   }
 }
 
