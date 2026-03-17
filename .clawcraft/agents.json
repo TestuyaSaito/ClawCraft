@@ -1,1 +1,82 @@
-[]
+[
+  {
+    "id": "1773655457909",
+    "sessionId": "1773655457909",
+    "name": "Claude-01",
+    "displayName": "Claude-01",
+    "callSign": "claude-01",
+    "aliases": [
+      "Claude-01",
+      "claude-01",
+      "@claude-01",
+      "@Claude-01"
+    ],
+    "engine": "claude",
+    "model": "opus-5.4",
+    "role": "builder",
+    "teamId": "terran-alpha",
+    "locked": false,
+    "sessionKind": "",
+    "taskTitle": "Waiting"
+  },
+  {
+    "id": "1773655536488",
+    "sessionId": "1773655536488",
+    "name": "Claude-01-02",
+    "displayName": "Claude-01-02",
+    "callSign": "claude-01-02",
+    "aliases": [
+      "Claude-01-02",
+      "claude-01-02",
+      "@claude-01-02",
+      "@Claude-01-02"
+    ],
+    "engine": "claude",
+    "model": "opus-5.4",
+    "role": "builder",
+    "teamId": "terran-alpha",
+    "locked": false,
+    "sessionKind": "",
+    "taskTitle": "Waiting"
+  },
+  {
+    "id": "1773655588371",
+    "sessionId": "1773655588371",
+    "name": "Claude-01-03",
+    "displayName": "Claude-01-03",
+    "callSign": "claude-01-03",
+    "aliases": [
+      "Claude-01-03",
+      "claude-01-03",
+      "@claude-01-03",
+      "@Claude-01-03"
+    ],
+    "engine": "claude",
+    "model": "opus-5.4",
+    "role": "builder",
+    "teamId": "terran-alpha",
+    "locked": false,
+    "sessionKind": "",
+    "taskTitle": "Waiting"
+  },
+  {
+    "id": "1773655621662",
+    "sessionId": "1773655621662",
+    "name": "Codex-01",
+    "displayName": "Codex-01",
+    "callSign": "codex-01",
+    "aliases": [
+      "Codex-01",
+      "codex-01",
+      "@codex-01",
+      "@Codex-01"
+    ],
+    "engine": "codex",
+    "model": "gpt-5.4",
+    "role": "builder",
+    "teamId": "terran-alpha",
+    "locked": false,
+    "sessionKind": "",
+    "taskTitle": "Waiting"
+  }
+]

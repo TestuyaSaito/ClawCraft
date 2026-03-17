@@ -17,7 +17,7 @@ function initAudio(){
   Object.entries(VOICE_FILES).forEach(([k,p])=>{const a=new Audio(p);a.preload='auto';audioEls[k]=a;});
 }
 function toggleMusic(){
-  if(!bgMusic){bgMusic=new Audio(MUSIC_FILES[musicIdx]);bgMusic.volume=0.22;bgMusic.onended=()=>{musicIdx=(musicIdx+1)%MUSIC_FILES.length;bgMusic.src=MUSIC_FILES[musicIdx];bgMusic.play().catch(()=>{});}}
+  if(!bgMusic){bgMusic=new Audio(MUSIC_FILES[musicIdx]);bgMusic.volume=0.165;bgMusic.onended=()=>{musicIdx=(musicIdx+1)%MUSIC_FILES.length;bgMusic.src=MUSIC_FILES[musicIdx];bgMusic.play().catch(()=>{});}}
   if(bgPlaying){bgMusic.pause();bgPlaying=false;document.getElementById('btn-music').textContent='♪ 음악';}
   else{bgMusic.play().then(()=>{bgPlaying=true;document.getElementById('btn-music').textContent='♪ ON';}).catch(()=>{});}
 }
