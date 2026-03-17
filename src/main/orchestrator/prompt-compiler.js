@@ -19,7 +19,7 @@ class PromptCompiler {
 
   // Compile full prompt with team context for a specific agent
   compile(agentId, taskPrompt, mode = 'shared-brief') {
-    if (mode === 'solo') return taskPrompt;
+    // All modes get team context + ACTION protocol (solo just skips shared brief/decisions)
 
     const presence = this.registry.getPresenceFor(agentId);
     if (!presence) return taskPrompt;
@@ -44,18 +44,18 @@ class PromptCompiler {
       ctx += '\n';
     }
 
-    // Project brief
-    const briefPath = path.join(this.sharedDir, 'brief.md');
-    if (fs.existsSync(briefPath)) {
-      const brief = fs.readFileSync(briefPath, 'utf8').trim();
-      if (brief.length > 20) ctx += `## Project Brief\n${brief}\n\n`;
-    }
-
-    // Decision log
-    const decPath = path.join(this.sharedDir, 'decision-log.md');
-    if (fs.existsSync(decPath)) {
-      const dec = fs.readFileSync(decPath, 'utf8').trim();
-      if (dec.length > 20) ctx += `## Decision Log\n${dec}\n\n`;
+    // Project brief + Decision log (skip for solo)
+    if (mode !== 'solo') {
+      const briefPath = path.join(this.sharedDir, 'brief.md');
+      if (fs.existsSync(briefPath)) {
+        const brief = fs.readFileSync(briefPath, 'utf8').trim();
+        if (brief.length > 20) ctx += `## Project Brief\n${brief}\n\n`;
+      }
+      const decPath = path.join(this.sharedDir, 'decision-log.md');
+      if (fs.existsSync(decPath)) {
+        const dec = fs.readFileSync(decPath, 'utf8').trim();
+        if (dec.length > 20) ctx += `## Decision Log\n${dec}\n\n`;
+      }
     }
 
     // Recent radio (team conversation)

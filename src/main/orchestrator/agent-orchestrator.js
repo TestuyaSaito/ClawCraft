@@ -410,7 +410,21 @@ class AgentOrchestrator extends EventEmitter {
     } else {
       this.promptCompiler.setPerception('');
     }
-    const fullPrompt = this.promptCompiler.compile(agentId, payload.prompt, mode);
+    // Auto-attach mentioned agent's recent work to prompt
+    let enrichedPrompt = payload.prompt;
+    const mentions = this.registry.extractMentions(payload.prompt);
+    if (mentions.length > 0) {
+      let mentionCtx = '\n\n## Referenced teammates\' recent work\n';
+      for (const m of mentions) {
+        const ctx = this.getAgentContextPack(m.agentId);
+        if (ctx && ctx.length > 20) {
+          mentionCtx += `### ${m.name}\n${ctx}\n`;
+        }
+      }
+      enrichedPrompt = payload.prompt + mentionCtx;
+    }
+
+    const fullPrompt = this.promptCompiler.compile(agentId, enrichedPrompt, mode);
 
     const runId = `run_${Date.now()}_${agentId}`;
     const startedAt = new Date().toISOString();
@@ -734,7 +748,8 @@ class AgentOrchestrator extends EventEmitter {
         });
         this.emitEvent({ type: 'action.delegate', agentId: run.agentId, target: action.target, task: action.task });
         // Auto-start delegated task on target if idle
-        if (target && target.status === 'idle' && action.task) {
+        if (target && action.task) {
+          // Start run even if not idle (will fail gracefully if already running)
           this.startRun({ agentId: String(target.id), prompt: action.task, taskTitle: action.task.slice(0, 50), mode: 'shared-brief' }).catch(() => {});
         }
         break;
@@ -769,7 +784,7 @@ class AgentOrchestrator extends EventEmitter {
         });
         this.emitEvent({ type: 'action.request-review', agentId: run.agentId, target: action.target, files: action.files });
         // Auto-start review if reviewer is idle
-        if (reviewer && reviewer.status === 'idle') {
+        if (reviewer) {
           const diffCtx = this.getAgentContextPack(run.agentId);
           this.startRun({ agentId: String(reviewer.id), prompt: `Review these changes:\n${diffCtx}\n\nFiles: ${action.files || 'all'}`, taskTitle: `Review for ${fromName}`, mode: 'shared-brief' }).catch(() => {});
         }
